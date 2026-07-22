@@ -274,12 +274,32 @@ export async function setStudentGroupArchived(groupId, archived) {
   await batch.commit();
 }
 export async function deleteStudentGroup(groupId) {
-  const batch = writeBatch(db);
-  const now = serverTimestamp();
+  const groupSnap = await getDoc(doc(db, 'studentGroups', groupId));
+  const groupData = groupSnap.exists() ? groupSnap.data() : {};
   const snap = await getDocs(query(collection(db, 'students'), where('groupId', '==', groupId)));
-  snap.docs.forEach((row) => batch.update(row.ref, { groupId: null, groupArchived: false, updatedAt: now }));
-  batch.delete(doc(db, 'studentGroups', groupId));
-  await batch.commit();
+  let studentDocs = snap.docs;
+  if (!studentDocs.length && (groupData.group || groupData.name)) {
+    const allStudents = await getDocs(collection(db, 'students'));
+    const groupName = groupData.group || groupData.name;
+    studentDocs = allStudents.docs.filter((row) => {
+      const s = row.data();
+      return (!groupData.departmentId || s.departmentId === groupData.departmentId) &&
+        (!groupName || s.group === groupName) &&
+        (!groupData.semester || s.semester === groupData.semester) &&
+        (!groupData.academicYear || s.academicYear === groupData.academicYear);
+    });
+  }
+  const refs = [doc(db, 'studentGroups', groupId)];
+  for (const studentDoc of studentDocs) {
+    refs.push(studentDoc.ref);
+    const evalSnap = await getDocs(query(collection(db, 'evaluations'), where('studentId', '==', studentDoc.id)));
+    evalSnap.docs.forEach((row) => refs.push(row.ref));
+  }
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
 }
 
 // ---- evaluations --------------------------------------------------------

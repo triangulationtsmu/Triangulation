@@ -663,28 +663,22 @@ async function openMsfResume(student) {
   const entries = msfEvals.map(E.msfEntryFromEvaluation);
   await renderStandaloneReport(modal, 'MSF Resume.html', `<script>
     (function(){
-      const student=${JSON.stringify({
-        studentName: `${student.lastName} ${student.firstName}`,
-        group: student.group || '',
-        semester: student.semester || '',
-        curation: student.curation || '',
-        curationStart: student.curationStart || '',
-        curationEnd: student.curationEnd || '',
+      const state=${JSON.stringify({
+        student: {
+          studentName: `${student.lastName} ${student.firstName}`,
+          group: student.group || '',
+          semester: student.semester || '',
+          curation: student.curation || '',
+          curationStart: student.curationStart || '',
+          curationEnd: student.curationEnd || '',
+        },
+        entries,
       })};
-      const entries=${JSON.stringify(entries)};
       function boot(){
-        if(typeof els !== 'undefined'){
-          els.studentName.value=student.studentName||'';
-          els.group.value=student.group||'';
-          els.semester.value=student.semester||'';
-          els.curation.value=student.curation||'';
-          els.curationStart.value=student.curationStart||'';
-          els.curationEnd.value=student.curationEnd||'';
+        if(typeof applyExternalState==='function'){
+          applyExternalState(state);
+          return;
         }
-        if(typeof msfEntries !== 'undefined') msfEntries=entries;
-        if(typeof renderTable==='function') renderTable();
-        if(entries.length && typeof renderRadarChart==='function') renderRadarChart();
-        if(entries.length && typeof generateResume==='function') generateResume();
       }
       window.addEventListener('DOMContentLoaded', boot);
       window.addEventListener('load', boot);
@@ -979,7 +973,7 @@ async function renderStudentGroups(groupsHost, host) {
         catch (e) { toast(e.message || 'ჯგუფი ვერ განახლდა.', 'error'); }
       } }),
       h('button', { class: 'sm bad', text: 'წაშლა', onClick: async () => {
-        const ok = await confirmDialog(`წავშალო ჯგუფი „${g.name || g.group || '—'}“ და ამ ჯგუფის სტუდენტები?`);
+        const ok = await confirmDialog(`წავშალო ჯგუფი „${g.name || g.group || '—'}“, ამ ჯგუფის სტუდენტები და მათი შეფასებები?`);
         if (!ok) return;
         try { await api.deleteStudentGroup(g.id); toast('ჯგუფი წაიშალა.', 'success'); viewStudents(host); }
         catch (e) { toast(e.message || 'ჯგუფი ვერ წაიშალა.', 'error'); }

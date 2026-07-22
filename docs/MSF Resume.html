@@ -834,6 +834,25 @@
       }
     }
 
+    function applyExternalState(data) {
+      const student = data && data.student ? data.student : {};
+      els.studentName.value = student.studentName || "";
+      els.group.value = student.group || "";
+      els.semester.value = student.semester || "";
+      els.curation.value = student.curation || "";
+      els.curationStart.value = student.curationStart || "";
+      els.curationEnd.value = student.curationEnd || "";
+      msfEntries = Array.isArray(data && data.entries) ? data.entries : [];
+      renderTable();
+      if (msfEntries.length) {
+        renderRadarChart();
+        generateResume();
+      } else {
+        els.chartSection.classList.add("hidden");
+        els.resumeSection.classList.add("hidden");
+      }
+    }
+
     function clearAll() {
       const ok = confirm("ნამდვილად გსურთ ყველა მონაცემის გასუფთავება?");
       if (!ok) return;
@@ -1370,6 +1389,7 @@
 
     window.addEventListener("load", loadData);
     window.removeEntry = removeEntry;
+    window.applyExternalState = applyExternalState;
   </script>
 </body>
 </html>
