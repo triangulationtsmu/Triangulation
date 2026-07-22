@@ -282,14 +282,15 @@ function studentRow(student) {
   ].map(([k, v]) => h('span', { class: 'pill', text: `${k}: ${v || '—'}` }));
 
   const btns = [
-    ['Mini-CEX', () => openEvalForm('mini_cex', student)],
-    ['CBD', () => openEvalForm('cbd', student)],
-    ['DOPS', () => openEvalForm('dops', student)],
-    ['MSF', () => openEvalForm('msf', student)],
+    ['Mini-CEX', () => openStandaloneTool('Mini_CEX_template.html')],
+    ['CBD', () => openStandaloneTool('CBD_template.html')],
+    ['DOPS', () => openStandaloneTool('DOPS_template.html')],
+    ['MSF', () => openStandaloneTool('MSF_template.html')],
   ].map(([label, fn]) => h('button', { class: 'sm', text: label, onClick: fn }));
   const summaryBtns = [
-    h('button', { class: 'sm secondary', text: 'WBA Summary', onClick: () => openWbaSummary(student) }),
-    h('button', { class: 'sm secondary', text: 'MSF Resume', onClick: () => openMsfResume(student) }),
+    h('button', { class: 'sm secondary', text: 'WBA Summary', onClick: () => openStandaloneTool('WBA.html') }),
+    h('button', { class: 'sm secondary', text: 'MSF Resume', onClick: () => openStandaloneTool('MSF Resume.html') }),
+    h('button', { class: 'sm secondary', text: 'WBA/MSF ინდექსი', onClick: () => openStandaloneTool('student_index_wba_msf_integrated_fixed_working.html') }),
   ];
 
   return h('div', { class: 'card', style: 'margin:0' }, [
@@ -303,6 +304,10 @@ function studentRow(student) {
       h('div', { class: 'btn-group', style: 'margin-top:10px' }, [...btns, ...summaryBtns]),
     ]),
   ]);
+}
+
+function openStandaloneTool(fileName) {
+  window.open(new URL(fileName, location.href).href, '_blank', 'noopener');
 }
 
 // =========================================================================

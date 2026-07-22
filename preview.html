@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WBA შეფასების ინსტრუმენტი</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --ink:#1f2937;
+      --muted:#6b7280;
+      --line:#dbe3ef;
+      --accent:#1d4ed8;
+      --accent2:#0f766e;
+      --warn:#b45309;
+      --bad:#b91c1c;
+      --shadow:0 10px 28px rgba(15,23,42,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#eef4ff 0%,#f8fbff 100%);
+      color:var(--ink);
+      font:16px/1.45 Calibri, Arial, sans-serif;
+    }
+    .wrap{
+      max-width:1280px;
+      margin:24px auto 80px;
+      padding:0 16px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      margin-bottom:18px;
+    }
+    .head{
+      padding:22px 24px;
+      background:linear-gradient(135deg,#ecfeff 0%,#eff6ff 100%);
+      border-bottom:1px solid var(--line);
+    }
+    h1,h2,h3{margin:0 0 8px}
+    h1{font-size:30px;color:#0f172a}
+    h2{font-size:22px}
+    h3{font-size:18px}
+    .sub{color:var(--muted)}
+    .p24{padding:24px}
+    .grid{display:grid;gap:14px}
+    .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    label{
+      display:block;
+      font-weight:700;
+      margin-bottom:6px;
+    }
+    input[type="text"], input[type="number"], input[type="date"], textarea{
+      width:100%;
+      padding:10px 12px;
+      border:1px solid #cfd8e3;
+      border-radius:12px;
+      font:inherit;
+      background:#fff;
+      color:var(--ink);
+    }
+    input[type="number"]{text-align:center}
+    .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      padding:18px 24px;
+      border-top:1px solid var(--line);
+      background:#fafcff;
+    }
+    button{
+      border:none;
+      border-radius:12px;
+      padding:11px 16px;
+      font:700 15px Calibri, Arial, sans-serif;
+      cursor:pointer;
+      background:var(--accent);
+      color:#fff;
+      box-shadow:var(--shadow);
+    }
+    button.secondary{background:var(--accent2)}
+    button.ghost{background:#e8eef8;color:#0f172a;box-shadow:none}
+    button.warn{background:var(--warn)}
+    button.bad{background:var(--bad)}
+    .hint{
+      font-size:13px;
+      color:var(--muted);
+      margin-top:6px;
+    }
+    .section-title{
+      padding:18px 24px;
+      border-bottom:1px solid var(--line);
+      background:#fbfdff;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .wba-row{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+      background:#fff;
+      margin-top:14px;
+    }
+    .wba-row-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .wba-tag{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#edf2ff;
+      color:#1e3a8a;
+      font-weight:700;
+      font-size:13px;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      background:#fff;
+    }
+    th, td{
+      border:1px solid var(--line);
+      padding:10px 12px;
+      text-align:center;
+      vertical-align:middle;
+    }
+    th{
+      background:#f8fbff;
+      font-weight:800;
+    }
+    tfoot td{
+      background:#eef6ff;
+      font-weight:800;
+    }
+    .left{text-align:left}
+    .summary-grid{
+      display:grid;
+      gap:14px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      margin-top:16px;
+    }
+    .result-box{
+      background:#f8fbff;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:14px;
+    }
+    .result-box .k{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:700;
+    }
+    .result-box .v{
+      font-size:28px;
+      font-weight:800;
+      margin-top:2px;
+    }
+    .radar-wrap{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:16px;
+    }
+    .radar-meta{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+    .meta-box{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:#f8fbff;
+    }
+    .meta-box .k{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:700;
+    }
+    .meta-box .v{
+      font-size:18px;
+      font-weight:800;
+      margin-top:2px;
+      word-break:break-word;
+    }
+    .canvas-card{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:18px;
+      background:#fff;
+    }
+    canvas{
+      display:block;
+      width:100%;
+      max-width:900px;
+      height:auto;
+      margin:0 auto;
+      background:#fff;
+      border-radius:12px;
+    }
+    .hidden{display:none !important}
+    .empty-note{
+      padding:18px;
+      border:1px dashed var(--line);
+      border-radius:14px;
+      background:#fafcff;
+      color:var(--muted);
+      text-align:center;
+    }
+
+    @media (max-width:1100px){
+      .grid-4,.grid-3,.summary-grid,.radar-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width:760px){
+      .grid-4,.grid-3,.grid-2,.summary-grid,.radar-meta{grid-template-columns:1fr}
+      .wba-row-header{flex-direction:column;align-items:flex-start}
+      table{font-size:14px}
+    }
+
+    @media print{
+      body{background:#fff}
+      .no-print{display:none !important}
+      #radarPrintArea{display:block !important}
+      #mainContent{display:none !important}
+      .wrap{max-width:none;margin:0;padding:0}
+      .card{box-shadow:none;border:1px solid #bbb}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="mainContent">
+      <div class="card">
+        <div class="head">
+          <h1>WBA შეფასების ინსტრუმენტი</h1>
+          <div class="sub">
+            სტუდენტის სამუშაო სივრცეზე დაფუძნებული შეფასების ფორმა: Mini-CEX, CBD, DOPS მონაცემების შეტანა, შეჯამება და საშუალო ქულებით რადარული დიაგრამის აგება.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h2>სტუდენტის მონაცემები</h2>
+            <small class="sub">იდენტიფიკატორები</small>
+          </div>
+        </div>
+        <div class="p24 grid grid-4">
+          <div>
+            <label for="studentName">სტუდენტი</label>
+            <input id="studentName" type="text" placeholder="" />
+          </div>
+          <div>
+            <label for="studentGroup">ჯგუფი</label>
+            <input id="studentGroup" type="text" placeholder="" />
+          </div>
+          <div>
+            <label for="studentRotation">კურაცია</label>
+            <input id="studentRotation" type="text" placeholder="" />
+          </div>
+          <div>
+            <label for="rotationStart">კურაციის დაწყება</label>
+            <input id="rotationStart" type="date" />
+          </div>
+          <div>
+            <label for="rotationEnd">კურაციის დასრულება</label>
+            <input id="rotationEnd" type="date" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h2>Workplace-Based Assessment (WBA)</h2>
+            <small class="sub">შემთხვევის/ქეისის შემთვევაში არ გამოჩნდება DOPS ქულის ველი. ელექტროკარდიოგრაფიის, სპირომეტრიის ან სხვა პროცდურის შეფასების შემთხვევაში ველში შესაბამისად უნდა შეიყვანოთ სიტყვები "ეკგ", "სპირომეტრია" ან "პროცედურა". ამ შემთხვევაში  გამოჩნდება მხოლოდ DOPS ქულის ველი.</small>
+          </div>
+        </div>
+
+        <div class="p24">
+          <div class="grid grid-4">
+            <div>
+              <label for="caseName">შემთხვევა / ქეისი ან პროცედურა</label>
+              <input id="caseName" type="text" placeholder="მაგ., პნევმონია, ეკგ, სპირომეტრია ან პროცედურა" oninput="toggleScoreInputs()" />
+            </div>
+            <div id="miniWrap">
+              <label for="miniCex">Mini-CEX ქულა</label>
+              <input id="miniCex" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+            </div>
+            <div id="cbdWrap">
+              <label for="cbd">CBD ქულა</label>
+              <input id="cbd" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+            </div>
+            <div id="dopsWrap" class="hidden">
+              <label for="dops">DOPS ქულა</label>
+              <input id="dops" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+            </div>
+          </div>
+          <div class="hint">ქულები (მათ შორის, წილადობრივი) შეიყვანეთ 1-8 დიაპაზონში. თუ შემთხვევა/ქეისი შეიცავს სიტყვას „ეკგ“, „სპირომეტრია“ ან „პროცედურა“, გამოჩნდება მხოლოდ DOPS ქულა.</div>
+        </div>
+
+        <div class="toolbar">
+          <button onclick="addWBA()">დამატება</button>
+          <button class="secondary" onclick="saveAll()">შენახვა</button>
+          <button class="bad" onclick="clearAll()">გასუფთავება</button>
+          <button class="ghost" onclick="showRadar()">რადარი</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h2>დამატებული WBA ჩანაწერები</h2>
+            <small class="sub">საჭიროების შემთხვევაში შესაძლებელია ცალკეული ჩანაწერის წაშლა</small>
+          </div>
+        </div>
+        <div class="p24">
+          <div id="wbaList"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <div>
+            <h2>შემაჯამებელი ცხრილი</h2>
+            <small class="sub">სვეტების ბოლოს ავტომატურად ითვლება საშუალო მაჩვენებლები; ნულოვანი მაჩვენებლები არ იქნება გათვალისწინებული</small>
+          </div>
+        </div>
+        <div class="p24">
+          <div style="overflow:auto">
+            <table id="summaryTable">
+              <thead>
+                <tr>
+                  <th>№</th>
+                  <th class="left">შემთხვევა / ქეისი</th>
+                  <th>Mini-CEX</th>
+                  <th>CBD</th>
+                  <th>DOPS</th>
+                </tr>
+              </thead>
+              <tbody id="summaryBody"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2" class="left">საშუალო</td>
+                  <td id="avgMini">0.00</td>
+                  <td id="avgCBD">0.00</td>
+                  <td id="avgDOPS">0.00</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="summary-grid">
+            <div class="result-box">
+              <div class="k">ჩანაწერების რაოდენობა</div>
+              <div class="v" id="entryCount">0</div>
+            </div>
+            <div class="result-box">
+              <div class="k">Mini-CEX საშუალო</div>
+              <div class="v" id="miniBox">0.00</div>
+            </div>
+            <div class="result-box">
+              <div class="k">CBD საშუალო</div>
+              <div class="v" id="cbdBox">0.00</div>
+            </div>
+            <div class="result-box">
+              <div class="k">DOPS საშუალო</div>
+              <div class="v" id="dopsBox">0.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="radarSection" class="card hidden">
+        <div class="section-title">
+          <div>
+            <h2>რადარული დიაგრამა</h2>
+            <small class="sub">აგებულია Mini-CEX, CBD და DOPS საშუალო ქულების საფუძველზე</small>
+          </div>
+        </div>
+        <div class="p24 radar-wrap">
+          <div class="radar-meta">
+            <div class="meta-box">
+              <div class="k">სტუდენტი</div>
+              <div class="v" id="rStudentName">—</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">ჯგუფი</div>
+              <div class="v" id="rStudentGroup">—</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">კურაცია</div>
+              <div class="v" id="rStudentRotation">—</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">კურაციის დაწყება</div>
+              <div class="v" id="rRotationStart">—</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">კურაციის დასრულება</div>
+              <div class="v" id="rRotationEnd">—</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">ჩანაწერების რაოდენობა</div>
+              <div class="v" id="rEntryCount">0</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">საშუალო ჯამური ქულა</div>
+              <div class="v" id="rOverallAvg">0.00</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">Mini-CEX საშუალო</div>
+              <div class="v" id="rMini">0.00</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">CBD საშუალო</div>
+              <div class="v" id="rCBD">0.00</div>
+            </div>
+            <div class="meta-box">
+              <div class="k">DOPS საშუალო</div>
+              <div class="v" id="rDOPS">0.00</div>
+            </div>
+          </div>
+
+          <div class="canvas-card">
+            <canvas id="radarCanvas" width="900" height="700"></canvas>
+          </div>
+
+          <div class="toolbar" style="padding:0;border-top:none;background:transparent">
+            <button class="warn" onclick="printRadar()">რადარის ბეჭდვა</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="radarPrintArea" class="hidden">
+      <div class="card">
+        <div class="head">
+          <h1>WBA რადარული დიაგრამა</h1>
+          <div class="sub" id="printMeta"></div>
+        </div>
+        <div class="p24">
+          <div class="radar-meta">
+            <div class="meta-box"><div class="k">სტუდენტი</div><div class="v" id="pStudentName">—</div></div>
+            <div class="meta-box"><div class="k">ჯგუფი</div><div class="v" id="pStudentGroup">—</div></div>
+            <div class="meta-box"><div class="k">კურაცია</div><div class="v" id="pStudentRotation">—</div></div>
+            <div class="meta-box"><div class="k">კურაციის დაწყება</div><div class="v" id="pRotationStart">—</div></div>
+            <div class="meta-box"><div class="k">კურაციის დასრულება</div><div class="v" id="pRotationEnd">—</div></div>
+            <div class="meta-box"><div class="k">Mini-CEX საშუალო</div><div class="v" id="pMini">0.00</div></div>
+            <div class="meta-box"><div class="k">CBD საშუალო</div><div class="v" id="pCBD">0.00</div></div>
+            <div class="meta-box"><div class="k">DOPS საშუალო</div><div class="v" id="pDOPS">0.00</div></div>
+            <div class="meta-box"><div class="k">ჩანაწერების რაოდენობა</div><div class="v" id="pEntryCount">0</div></div>
+            <div class="meta-box"><div class="k">საშუალო ჯამური ქულა</div><div class="v" id="pOverallAvg">0.00</div></div>
+          </div>
+          <div class="canvas-card" style="margin-top:18px">
+            <img id="printRadarImage" alt="Radar chart" style="display:block;width:100%;max-width:900px;margin:0 auto" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'wba_assessment_tool_ka_v3';
+    let wbaEntries = [];
+
+    function toNumber(val){
+      const n = parseFloat(val);
+      return isNaN(n) ? null : n;
+    }
+
+    function formatNum(val){
+      return Number(val || 0).toFixed(2);
+    }
+
+    function formatDisplayDate(val){
+      if(!val) return '—';
+      return val;
+    }
+
+    function getStudentMeta(){
+      return {
+        name: document.getElementById('studentName').value.trim(),
+        group: document.getElementById('studentGroup').value.trim(),
+        rotation: document.getElementById('studentRotation').value.trim(),
+        rotationStart: document.getElementById('rotationStart').value,
+        rotationEnd: document.getElementById('rotationEnd').value
+      };
+    }
+
+    function isProcedureCase(caseName){
+      const s = String(caseName || '').toLowerCase().trim();
+      return s.includes('ეკგ') || s.includes('სპირომეტრია') || s.includes('პროცედურა');
+    }
+
+    function toggleScoreInputs(){
+      const caseValue = document.getElementById('caseName').value;
+      const procedureMode = isProcedureCase(caseValue);
+
+      document.getElementById('miniWrap').classList.toggle('hidden', procedureMode);
+      document.getElementById('cbdWrap').classList.toggle('hidden', procedureMode);
+      document.getElementById('dopsWrap').classList.toggle('hidden', !procedureMode);
+
+      if(procedureMode){
+        document.getElementById('miniCex').value = '';
+        document.getElementById('cbd').value = '';
+      } else {
+        document.getElementById('dops').value = '';
+      }
+    }
+
+    function validateScore(val, label){
+      if(val === null || val < 1 || val > 8){
+        alert(label + ' უნდა იყოს 1-8 დიაპაზონში.');
+        return false;
+      }
+      return true;
+    }
+
+    function addWBA(){
+      const caseName = document.getElementById('caseName').value.trim();
+      const procedureMode = isProcedureCase(caseName);
+
+      if(!caseName){
+        alert('გთხოვთ შეიყვანოთ შემთხვევა / ქეისი.');
+        return;
+      }
+
+      let mini = 0;
+      let cbd = 0;
+      let dops = 0;
+
+      if(procedureMode){
+        dops = toNumber(document.getElementById('dops').value);
+        if(!validateScore(dops, 'DOPS ქულა')) return;
+      } else {
+        mini = toNumber(document.getElementById('miniCex').value);
+        cbd = toNumber(document.getElementById('cbd').value);
+        if(!validateScore(mini, 'Mini-CEX ქულა')) return;
+        if(!validateScore(cbd, 'CBD ქულა')) return;
+      }
+
+      wbaEntries.push({
+        caseName,
+        mini,
+        cbd,
+        dops,
+        procedureMode
+      });
+
+      clearWBAInputs();
+      renderAll();
+      saveSilently();
+    }
+
+    function clearWBAInputs(){
+      document.getElementById('caseName').value = '';
+      document.getElementById('miniCex').value = '';
+      document.getElementById('cbd').value = '';
+      document.getElementById('dops').value = '';
+      toggleScoreInputs();
+    }
+
+    function removeWBA(index){
+      if(!confirm('ნამდვილად გსურთ ჩანაწერის წაშლა?')) return;
+      wbaEntries.splice(index, 1);
+      renderAll();
+      saveSilently();
+    }
+
+    function renderEntries(){
+      const host = document.getElementById('wbaList');
+      host.innerHTML = '';
+
+      if(wbaEntries.length === 0){
+        host.innerHTML = '<div class="empty-note">ჩანაწერი ჯერ არ არის დამატებული.</div>';
+        return;
+      }
+
+      wbaEntries.forEach((row, index) => {
+        const div = document.createElement('div');
+        div.className = 'wba-row';
+
+        const scoreBlocks = row.procedureMode
+          ? `
+            <div>
+              <label>DOPS</label>
+              <input type="text" value="${formatNum(row.dops)}" disabled>
+            </div>
+          `
+          : `
+            <div>
+              <label>Mini-CEX</label>
+              <input type="text" value="${formatNum(row.mini)}" disabled>
+            </div>
+            <div>
+              <label>CBD</label>
+              <input type="text" value="${formatNum(row.cbd)}" disabled>
+            </div>
+          `;
+
+        div.innerHTML = `
+          <div class="wba-row-header">
+            <span class="wba-tag">ჩანაწერი ${index + 1}</span>
+            <button class="bad" onclick="removeWBA(${index})">წაშლა</button>
+          </div>
+          <div class="grid grid-3">
+            <div>
+              <label>შემთხვევა / ქეისი</label>
+              <input type="text" value="${escapeHtml(row.caseName)}" disabled>
+            </div>
+            ${scoreBlocks}
+          </div>
+        `;
+        host.appendChild(div);
+      });
+    }
+
+    function nonZeroAverage(values){
+      const filtered = values.filter(v => Number(v) > 0);
+      if(filtered.length === 0) return 0;
+      return filtered.reduce((a,b)=>a+b,0) / filtered.length;
+    }
+
+    function renderSummaryTable(){
+      const body = document.getElementById('summaryBody');
+      body.innerHTML = '';
+
+      if(wbaEntries.length === 0){
+        body.innerHTML = `
+          <tr>
+            <td colspan="5" class="left">მონაცემები არ არის დამატებული</td>
+          </tr>
+        `;
+      } else {
+        wbaEntries.forEach((row, index) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td class="left">${escapeHtml(row.caseName)}</td>
+            <td>${row.mini > 0 ? formatNum(row.mini) : '0.00'}</td>
+            <td>${row.cbd > 0 ? formatNum(row.cbd) : '0.00'}</td>
+            <td>${row.dops > 0 ? formatNum(row.dops) : '0.00'}</td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+
+      const avg = getAverages();
+      document.getElementById('avgMini').textContent = formatNum(avg.mini);
+      document.getElementById('avgCBD').textContent = formatNum(avg.cbd);
+      document.getElementById('avgDOPS').textContent = formatNum(avg.dops);
+
+      document.getElementById('entryCount').textContent = wbaEntries.length;
+      document.getElementById('miniBox').textContent = formatNum(avg.mini);
+      document.getElementById('cbdBox').textContent = formatNum(avg.cbd);
+      document.getElementById('dopsBox').textContent = formatNum(avg.dops);
+    }
+
+    function getAverages(){
+      if(wbaEntries.length === 0){
+        return { mini:0, cbd:0, dops:0, overall:0 };
+      }
+
+      const avg = {
+        mini: nonZeroAverage(wbaEntries.map(r => r.mini)),
+        cbd: nonZeroAverage(wbaEntries.map(r => r.cbd)),
+        dops: nonZeroAverage(wbaEntries.map(r => r.dops))
+      };
+
+      const overallParts = [avg.mini, avg.cbd, avg.dops].filter(v => v > 0);
+      avg.overall = overallParts.length ? overallParts.reduce((a,b)=>a+b,0) / overallParts.length : 0;
+      return avg;
+    }
+
+    function showRadar(){
+      document.getElementById('radarSection').classList.remove('hidden');
+      updateRadarMeta();
+      drawRadar();
+      window.scrollTo({ top: document.getElementById('radarSection').offsetTop - 12, behavior: 'smooth' });
+    }
+
+    function updateRadarMeta(){
+      const meta = getStudentMeta();
+      const avg = getAverages();
+
+      document.getElementById('rStudentName').textContent = meta.name || '—';
+      document.getElementById('rStudentGroup').textContent = meta.group || '—';
+      document.getElementById('rStudentRotation').textContent = meta.rotation || '—';
+      document.getElementById('rRotationStart').textContent = formatDisplayDate(meta.rotationStart);
+      document.getElementById('rRotationEnd').textContent = formatDisplayDate(meta.rotationEnd);
+      document.getElementById('rEntryCount').textContent = wbaEntries.length;
+      document.getElementById('rOverallAvg').textContent = formatNum(avg.overall);
+      document.getElementById('rMini').textContent = formatNum(avg.mini);
+      document.getElementById('rCBD').textContent = formatNum(avg.cbd);
+      document.getElementById('rDOPS').textContent = formatNum(avg.dops);
+
+      document.getElementById('pStudentName').textContent = meta.name || '—';
+      document.getElementById('pStudentGroup').textContent = meta.group || '—';
+      document.getElementById('pStudentRotation').textContent = meta.rotation || '—';
+      document.getElementById('pRotationStart').textContent = formatDisplayDate(meta.rotationStart);
+      document.getElementById('pRotationEnd').textContent = formatDisplayDate(meta.rotationEnd);
+      document.getElementById('pEntryCount').textContent = wbaEntries.length;
+      document.getElementById('pOverallAvg').textContent = formatNum(avg.overall);
+      document.getElementById('pMini').textContent = formatNum(avg.mini);
+      document.getElementById('pCBD').textContent = formatNum(avg.cbd);
+      document.getElementById('pDOPS').textContent = formatNum(avg.dops);
+
+      const printMeta = [
+        meta.name ? `სტუდენტი: ${meta.name}` : '',
+        meta.group ? `ჯგუფი: ${meta.group}` : '',
+        meta.rotation ? `კურაცია: ${meta.rotation}` : '',
+        meta.rotationStart ? `დაწყება: ${meta.rotationStart}` : '',
+        meta.rotationEnd ? `დასრულება: ${meta.rotationEnd}` : ''
+      ].filter(Boolean).join(' | ');
+      document.getElementById('printMeta').textContent = printMeta || 'სტუდენტის მონაცემები არ არის მითითებული';
+    }
+
+    function drawRadar(){
+      const canvas = document.getElementById('radarCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      const avg = getAverages();
+      const data = [
+        { title:'Mini-CEX', value:avg.mini },
+        { title:'CBD', value:avg.cbd },
+        { title:'DOPS', value:avg.dops }
+      ];
+
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2 + 30;
+      const radius = 220;
+      const levels = 8;
+      const maxValue = 8;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 28px Calibri';
+      ctx.textAlign = 'center';
+      ctx.fillText('WBA რადარული დიაგრამა', cx, 42);
+
+      ctx.font = '16px Calibri';
+      ctx.fillStyle = '#475569';
+      ctx.fillText('საშუალო ქულები: Mini-CEX, CBD, DOPS', cx, 68);
+
+      for(let level=1; level<=levels; level++){
+        const r = radius * (level / levels);
+        ctx.beginPath();
+        data.forEach((_, i) => {
+          const angle = (-Math.PI / 2) + (Math.PI * 2 * i / data.length);
+          const x = cx + Math.cos(angle) * r;
+          const y = cy + Math.sin(angle) * r;
+          if(i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = '#dbe3ef';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        const tickValue = (maxValue / levels) * level;
+        ctx.fillStyle = '#64748b';
+        ctx.font = '13px Calibri';
+        ctx.textAlign = 'left';
+        ctx.fillText(tickValue.toFixed(0), cx + 8, cy - r + 4);
+      }
+
+      data.forEach((axis, i) => {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / data.length);
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        const lx = cx + Math.cos(angle) * (radius + 58);
+        const ly = cy + Math.sin(angle) * (radius + 58);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 16px Calibri';
+        ctx.textAlign = 'center';
+        ctx.fillText(axis.title, lx, ly);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px Calibri';
+        ctx.fillText(formatNum(axis.value), lx, ly + 20);
+      });
+
+      ctx.beginPath();
+      data.forEach((axis, i) => {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / data.length);
+        const valueRadius = radius * (axis.value / maxValue);
+        const x = cx + Math.cos(angle) * valueRadius;
+        const y = cy + Math.sin(angle) * valueRadius;
+        if(i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(29,78,216,0.22)';
+      ctx.strokeStyle = '#1d4ed8';
+      ctx.lineWidth = 3;
+      ctx.fill();
+      ctx.stroke();
+
+      data.forEach((axis, i) => {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / data.length);
+        const valueRadius = radius * (axis.value / maxValue);
+        const x = cx + Math.cos(angle) * valueRadius;
+        const y = cy + Math.sin(angle) * valueRadius;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f766e';
+        ctx.fill();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 14px Calibri';
+        ctx.textAlign = 'center';
+        ctx.fillText(formatNum(axis.value), x, y - 12);
+      });
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 16px Calibri';
+      ctx.fillText('აღნიშვნები:', 40, canvas.height - 90);
+
+      ctx.font = '15px Calibri';
+      ctx.fillStyle = '#334155';
+      ctx.fillText('• Mini-CEX — Mini-Clinical Evaluation Exercise', 40, canvas.height - 62);
+      ctx.fillText('• CBD — Case-Based Discussion', 40, canvas.height - 38);
+      ctx.fillText('• DOPS — Direct Observation of Procedural Skills', 40, canvas.height - 14);
+    }
+
+    function printRadar(){
+      showRadar();
+      document.getElementById('printRadarImage').src = document.getElementById('radarCanvas').toDataURL('image/png');
+      window.print();
+    }
+
+    function collectState(){
+      return {
+        student: getStudentMeta(),
+        entries: wbaEntries
+      };
+    }
+
+    function applyState(state){
+      if(!state) return;
+      const student = state.student || {};
+      document.getElementById('studentName').value = student.name || '';
+      document.getElementById('studentGroup').value = student.group || '';
+      document.getElementById('studentRotation').value = student.rotation || '';
+      document.getElementById('rotationStart').value = student.rotationStart || '';
+      document.getElementById('rotationEnd').value = student.rotationEnd || '';
+      wbaEntries = Array.isArray(state.entries) ? state.entries : [];
+      renderAll();
+    }
+
+    function saveSilently(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    }
+
+    function saveAll(){
+      saveSilently();
+      alert('მონაცემები შენახულია ბრაუზერში.');
+    }
+
+    function clearAll(){
+      if(!confirm('ნამდვილად გსურთ ყველა მონაცემის გასუფთავება?')) return;
+      document.getElementById('studentName').value = '';
+      document.getElementById('studentGroup').value = '';
+      document.getElementById('studentRotation').value = '';
+      document.getElementById('rotationStart').value = '';
+      document.getElementById('rotationEnd').value = '';
+      clearWBAInputs();
+      wbaEntries = [];
+      localStorage.removeItem(STORAGE_KEY);
+      renderAll();
+      document.getElementById('radarSection').classList.add('hidden');
+    }
+
+    function renderAll(){
+      renderEntries();
+      renderSummaryTable();
+      if(!document.getElementById('radarSection').classList.contains('hidden')){
+        updateRadarMeta();
+        drawRadar();
+      }
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    ['studentName','studentGroup','studentRotation','rotationStart','rotationEnd'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        saveSilently();
+        if(!document.getElementById('radarSection').classList.contains('hidden')){
+          updateRadarMeta();
+          drawRadar();
+        }
+      });
+    });
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved){
+      try{
+        applyState(JSON.parse(saved));
+      }catch(e){
+        renderAll();
+      }
+    } else {
+      renderAll();
+    }
+
+    toggleScoreInputs();
+  </script>
+</body>
+</html>
