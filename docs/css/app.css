@@ -136,6 +136,7 @@ td.num,th.num{text-align:center}
 .loading-overlay{padding:40px;text-align:center;color:var(--muted)}
 
 canvas{display:block;width:100%;max-width:900px;height:auto;margin:0 auto;background:#fff;border-radius:12px}
+.tool-frame{width:100%;min-height:82vh;border:1px solid var(--line);border-radius:14px;background:#fff}
 
 /* ---- WBA / MSF report style, aligned with the original standalone templates ---- */
 .report-shell{display:flex;flex-direction:column;gap:18px}

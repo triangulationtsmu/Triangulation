@@ -201,6 +201,12 @@ function academicYearOptions(startYear = new Date().getFullYear(), count = 12, i
   }
   return opts;
 }
+const ASSESSMENT_TEMPLATE_FILES = {
+  mini_cex: 'Mini_CEX_template.html',
+  cbd: 'CBD_template.html',
+  dops: 'DOPS_template.html',
+  msf: 'MSF_template.html',
+};
 
 // =========================================================================
 // WORKSPACE  (dept -> year/semester -> group -> students -> eval buttons)
@@ -282,14 +288,14 @@ function studentRow(student) {
   ].map(([k, v]) => h('span', { class: 'pill', text: `${k}: ${v || '—'}` }));
 
   const btns = [
-    ['Mini-CEX', () => openEvalForm('mini_cex', student)],
-    ['CBD', () => openEvalForm('cbd', student)],
-    ['DOPS', () => openEvalForm('dops', student)],
-    ['MSF', () => openEvalForm('msf', student)],
+    ['Mini-CEX', () => openTemplateEvalForm('mini_cex', student)],
+    ['CBD', () => openTemplateEvalForm('cbd', student)],
+    ['DOPS', () => openTemplateEvalForm('dops', student)],
+    ['MSF', () => openTemplateEvalForm('msf', student)],
   ].map(([label, fn]) => h('button', { class: 'sm', text: label, onClick: fn }));
   const summaryBtns = [
-    h('button', { class: 'sm secondary', text: 'WBA Summary', onClick: () => openStandaloneTool('WBA.html') }),
-    h('button', { class: 'sm secondary', text: 'MSF Resume', onClick: () => openStandaloneTool('MSF Resume.html') }),
+    h('button', { class: 'sm secondary', text: 'WBA Summary', onClick: () => openWbaSummary(student) }),
+    h('button', { class: 'sm secondary', text: 'MSF Resume', onClick: () => openMsfResume(student) }),
   ];
 
   return h('div', { class: 'card', style: 'margin:0' }, [
@@ -307,6 +313,157 @@ function studentRow(student) {
 
 function openStandaloneTool(fileName) {
   window.open(new URL(fileName, location.href).href, '_blank', 'noopener');
+}
+
+function roleForTemplate(role) {
+  const map = {
+    curator: 'კურატორი ექიმი/რეზიდენტი',
+    doctor: 'კურატორი ექიმი/რეზიდენტი',
+    department_head: 'დეპარტამენტის ხელმძღვანელი',
+    nurse: 'ექთანი',
+    lecturer: 'ლექტორი',
+    assessor: 'სხვა შესაბამისი შემფასებელი',
+  };
+  return map[role] || E.roleLabel(role);
+}
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+async function openTemplateEvalForm(type, student) {
+  const fileName = ASSESSMENT_TEMPLATE_FILES[type];
+  if (!fileName) return openEvalForm(type, student);
+  if (!['department_head', 'curator', 'doctor', 'nurse', 'lecturer', 'assessor'].includes(state.me.role) && !state.me.isAdmin) {
+    toast('შეფასების შევსების უფლება არ გაქვთ.', 'error'); return;
+  }
+  const content = h('div', { class: 'loading-overlay' }, [h('span', { class: 'spinner' }), ' იტვირთება…']);
+  const modal = openModal({ title: `${E.FORMS[type].label} — ${student.lastName} ${student.firstName}`, content, width: '1180px' });
+  const onMessage = async (event) => {
+    const data = event.data || {};
+    if (data.source !== 'triangulation-template-save' || data.token !== token) return;
+    try {
+      await saveTemplateEvaluation(type, student, data.payload || {});
+      toast('შეფასება Firestore-ში შენახულია.', 'success');
+      window.removeEventListener('message', onMessage);
+      modal.close();
+    } catch (e) {
+      toast(e.message || 'შენახვა ვერ მოხერხდა.', 'error');
+    }
+  };
+  const token = `t_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  window.addEventListener('message', onMessage);
+  try {
+    const html = await (await fetch(fileName, { cache: 'no-store' })).text();
+    clear(modal.body);
+    const iframe = h('iframe', { class: 'tool-frame', title: E.FORMS[type].label });
+    modal.body.appendChild(iframe);
+    iframe.srcdoc = html.replace('</body>', templateBridgeScript(type, student, token) + '</body>');
+  } catch (e) {
+    window.removeEventListener('message', onMessage);
+    clear(modal.body);
+    modal.body.appendChild(h('div', { class: 'empty-note', text: 'ფორმის ჩატვირთვა ვერ მოხერხდა.' }));
+  }
+}
+function templateBridgeScript(type, student, token) {
+  const meta = {
+    token,
+    type,
+    studentName: `${student.lastName} ${student.firstName}`,
+    department: student.departmentId ? deptName(student.departmentId) : deptName(state.me.departmentId),
+    evaluatorName: `${state.me.firstName} ${state.me.lastName}`,
+    evaluatorRole: roleForTemplate(state.me.role),
+    group: student.group || '',
+    semester: student.semester || '',
+    curation: student.curation || '',
+    curationStart: student.curationStart || '',
+    curationEnd: student.curationEnd || '',
+    date: todayIso(),
+  };
+  return `<script>
+(function(){
+ const META=${JSON.stringify(meta)};
+ function setValue(id,value,lock){
+   const el=document.getElementById(id); if(!el) return;
+   if(el.tagName==='SELECT' && value && ![...el.options].some(o=>o.value===value || o.textContent===value)){
+     const opt=document.createElement('option'); opt.value=value; opt.textContent=value; el.appendChild(opt);
+   }
+   el.value=value||''; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true}));
+   if(lock) el.disabled=true;
+ }
+ function init(){
+   setValue('trainee', META.studentName, true);
+   setValue('studentName', META.studentName, true);
+   setValue('assessor', META.evaluatorName, true);
+   setValue('rater', META.evaluatorName, true);
+   setValue('setting', META.department, true);
+   setValue('dept', META.department, true);
+   setValue('role', META.evaluatorRole, true);
+   setValue('group', META.group, true);
+   setValue('semester', META.semester, true);
+   setValue('curation', META.curation, true);
+   setValue('rotation', META.curation, true);
+   setValue('curationStart', META.curationStart, true);
+   setValue('rotationStart', META.curationStart, true);
+   setValue('curationEnd', META.curationEnd, true);
+   setValue('rotationEnd', META.curationEnd, true);
+   setValue('date', META.date, false);
+   const actions=document.querySelector('.actions') || document.body;
+   const btn=document.createElement('button');
+   btn.textContent='Firestore-ში შენახვა';
+   btn.style.background='#0f766e';
+   btn.onclick=function(ev){ ev.preventDefault(); saveFirestore(); };
+   actions.appendChild(btn);
+   if(typeof calc==='function') calc();
+ }
+ function collect(){
+   const values={}; document.querySelectorAll('input,textarea,select').forEach(el=>{ if(el.id) values[el.id]=el.value; });
+   const answers={}; document.querySelectorAll('select.score').forEach(el=>{ if(el.id) answers[el.id]=el.value; });
+   const scores={
+     total:Number((document.getElementById('totalScore')||{}).textContent||0),
+     completed:Number((document.getElementById('completed')||{}).textContent||0),
+     average:Number((document.getElementById('average')||{}).textContent||0),
+     judgment:(document.getElementById('judgment')||{}).textContent||''
+   };
+   return {values,answers,scores,summary:{
+     caseName: values.case_name || values.caseName || '',
+     strengths: values.strengths || '',
+     improve: values.improve || '',
+     plan: values.plan || '',
+     followup: values.followup || '',
+     priorities: values.priorities || ''
+   }};
+ }
+ function saveFirestore(){
+   if(typeof calc==='function') calc();
+   parent.postMessage({source:'triangulation-template-save',token:META.token,payload:collect()}, '*');
+ }
+ window.addEventListener('DOMContentLoaded', init);
+ setTimeout(init, 50);
+})();
+<\/script>`;
+}
+async function saveTemplateEvaluation(type, student, payload) {
+  const form = E.FORMS[type];
+  const scores = payload.scores || {};
+  if (Number(scores.completed || 0) < form.domains.length) {
+    throw new Error('შეავსეთ ყველა დომენი (1-8).');
+  }
+  await api.createEvaluation({
+    studentId: student.id,
+    type,
+    departmentId: student.departmentId || state.me.departmentId || null,
+    group: student.group || null,
+    semester: student.semester || null,
+    course: student.course || null,
+    academicYear: student.academicYear || null,
+    evaluatorUid: state.me.uid,
+    evaluatorFirstName: state.me.firstName,
+    evaluatorLastName: state.me.lastName,
+    evaluatorRole: state.me.role,
+    answers: payload.answers || {},
+    scores,
+    summary: payload.summary || {},
+    formValues: payload.values || {},
+  });
 }
 
 // =========================================================================
@@ -431,7 +588,7 @@ function openEvalForm(type, student) {
 // =========================================================================
 async function openWbaSummary(student) {
   const content = h('div', { class: 'loading-overlay' }, [h('span', { class: 'spinner' }), ' იტვირთება…']);
-  const modal = openModal({ title: `WBA Summary — ${student.lastName} ${student.firstName}`, content, width: '1000px' });
+  const modal = openModal({ title: `WBA Summary — ${student.lastName} ${student.firstName}`, content, width: '1180px' });
   let evals = [];
   try {
     const [m, c, d] = await Promise.all([
@@ -443,65 +600,26 @@ async function openWbaSummary(student) {
   } catch (e) { console.error(e); }
 
   const entries = E.wbaBuildEntries(evals);
-  const avg = E.wbaGetAverages(entries);
-  const body = modal.body;
-  clear(body);
-
-  if (!entries.length) {
-    body.appendChild(h('div', { class: 'empty-note', text: 'ამ სტუდენტს ჯერ არ აქვს Mini-CEX / CBD / DOPS შეფასება.' }));
-    return;
-  }
-
-  const rows = entries.map((r, i) => h('tr', {}, [
-    h('td', { class: 'num', text: String(i + 1) }),
-    h('td', { class: 'left', text: r.caseName }),
-    h('td', { class: 'num', text: r.mini > 0 ? E.formatNum(r.mini) : '0.00' }),
-    h('td', { class: 'num', text: r.cbd > 0 ? E.formatNum(r.cbd) : '0.00' }),
-    h('td', { class: 'num', text: r.dops > 0 ? E.formatNum(r.dops) : '0.00' }),
-  ]));
-  const table = h('div', { class: 'table-wrap' }, [h('table', {}, [
-    h('thead', {}, [h('tr', {}, [
-      h('th', { class: 'num', text: '№' }), h('th', { text: 'შემთხვევა / ქეისი' }),
-      h('th', { class: 'num', text: 'Mini-CEX' }), h('th', { class: 'num', text: 'CBD' }), h('th', { class: 'num', text: 'DOPS' }),
-    ])]),
-    h('tbody', {}, rows),
-    h('tfoot', {}, [h('tr', {}, [
-      h('td', { colspan: '2', text: 'საშუალო' }),
-      h('td', { class: 'num', text: E.formatNum(avg.mini) }),
-      h('td', { class: 'num', text: E.formatNum(avg.cbd) }),
-      h('td', { class: 'num', text: E.formatNum(avg.dops) }),
-    ])]),
-  ])]);
-
-  const canvas = h('canvas', { width: '900', height: '700' });
-  const printBtn = h('button', { class: 'warn no-print', text: 'ბეჭდვა', onClick: () => window.print() });
-
-  body.appendChild(h('div', { class: 'report-shell wba-report' }, [
-    h('div', { class: 'report-head' }, [
-      h('h1', { text: 'WBA შეფასების ინსტრუმენტი' }),
-      h('div', { class: 'sub', text: 'Mini-CEX, CBD, DOPS მონაცემების შეჯამება და საშუალო ქულებით რადარული დიაგრამა.' }),
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'section-title' }, [h('h2', { text: 'სტუდენტის მონაცემები' })]),
-      h('div', { class: 'radar-meta' }, reportMetaBoxes(student, [
-        ['ჩანაწერების რაოდენობა', String(entries.length)],
-        ['საშუალო ჯამური ქულა', E.formatNum(avg.overall)],
-        ['Mini-CEX საშუალო', E.formatNum(avg.mini)],
-        ['CBD საშუალო', E.formatNum(avg.cbd)],
-        ['DOPS საშუალო', E.formatNum(avg.dops)],
-      ])),
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'section-title' }, [h('h2', { text: 'WBA Summary' })]),
-      table,
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'section-title' }, [h('h2', { text: 'რედარული დიაგრამა' })]),
-      h('div', { class: 'canvas-card' }, [canvas]),
-    ]),
-    h('div', { class: 'row no-print' }, [printBtn]),
-  ]));
-  E.drawWbaRadar(canvas, avg);
+  await renderStandaloneReport(modal, 'WBA.html', `<script>
+    (function(){
+      const state=${JSON.stringify({
+        student: {
+          name: `${student.lastName} ${student.firstName}`,
+          group: student.group || '',
+          rotation: student.curation || '',
+          rotationStart: student.curationStart || '',
+          rotationEnd: student.curationEnd || '',
+        },
+        entries,
+      })};
+      function boot(){
+        if(typeof applyState==='function') applyState(state);
+        if(typeof showRadar==='function') showRadar();
+      }
+      window.addEventListener('DOMContentLoaded', boot);
+      setTimeout(boot, 80);
+    })();
+  <\/script>`);
 }
 
 // =========================================================================
@@ -509,73 +627,54 @@ async function openWbaSummary(student) {
 // =========================================================================
 async function openMsfResume(student) {
   const content = h('div', { class: 'loading-overlay' }, [h('span', { class: 'spinner' }), ' იტვირთება…']);
-  const modal = openModal({ title: `MSF Resume — ${student.lastName} ${student.firstName}`, content, width: '1000px' });
+  const modal = openModal({ title: `MSF Resume — ${student.lastName} ${student.firstName}`, content, width: '1180px' });
   let msfEvals = [];
   try { msfEvals = await api.listEvaluationsByStudent(student.id, 'msf'); }
   catch (e) { console.error(e); }
 
   const entries = msfEvals.map(E.msfEntryFromEvaluation);
-  const averages = E.msfCalculateAverages(entries);
-  const body = modal.body; clear(body);
+  await renderStandaloneReport(modal, 'MSF Resume.html', `<script>
+    (function(){
+      const student=${JSON.stringify({
+        studentName: `${student.lastName} ${student.firstName}`,
+        group: student.group || '',
+        semester: student.semester || '',
+        curation: student.curation || '',
+        curationStart: student.curationStart || '',
+        curationEnd: student.curationEnd || '',
+      })};
+      const entries=${JSON.stringify(entries)};
+      function boot(){
+        if(typeof els !== 'undefined'){
+          els.studentName.value=student.studentName||'';
+          els.group.value=student.group||'';
+          els.semester.value=student.semester||'';
+          els.curation.value=student.curation||'';
+          els.curationStart.value=student.curationStart||'';
+          els.curationEnd.value=student.curationEnd||'';
+        }
+        if(typeof msfEntries !== 'undefined') msfEntries=entries;
+        if(typeof renderTable==='function') renderTable();
+        if(entries.length && typeof renderRadarChart==='function') renderRadarChart();
+        if(entries.length && typeof generateResume==='function') generateResume();
+      }
+      window.addEventListener('DOMContentLoaded', boot);
+      setTimeout(boot, 80);
+    })();
+  <\/script>`);
+}
 
-  if (!entries.length) {
-    body.appendChild(h('div', { class: 'empty-note', text: 'ამ სტუდენტს ჯერ არ აქვს MSF შეფასება.' }));
-    return;
+async function renderStandaloneReport(modal, fileName, bridgeScript) {
+  try {
+    const html = await (await fetch(fileName, { cache: 'no-store' })).text();
+    clear(modal.body);
+    const iframe = h('iframe', { class: 'tool-frame', title: fileName });
+    modal.body.appendChild(iframe);
+    iframe.srcdoc = html.replace('</body>', bridgeScript + '</body>');
+  } catch (e) {
+    clear(modal.body);
+    modal.body.appendChild(h('div', { class: 'empty-note', text: 'ანგარიშის ჩატვირთვა ვერ მოხერხდა.' }));
   }
-
-  const headCells = [h('th', { class: 'num', text: '№' }), h('th', { text: 'შემფასებელი' })]
-    .concat(E.MSF_DOMAINS.map((d) => h('th', { class: 'num', text: d.label })));
-  const rows = entries.map((e, i) => h('tr', {}, [
-    h('td', { class: 'num', text: String(i + 1) }), h('td', { text: e.evaluator || '—' }),
-    ...E.MSF_DOMAINS.map((d) => h('td', { class: 'num', text: E.msfFormatNumber(e[d.key]) })),
-  ]));
-  const footCells = [h('td', { colspan: '2', text: 'საშუალო' })]
-    .concat(E.MSF_DOMAINS.map((d) => h('td', { class: 'num', text: E.msfFormatNumber(averages[d.key]) })));
-  const table = h('div', { class: 'table-wrap' }, [h('table', {}, [
-    h('thead', {}, [h('tr', {}, headCells)]),
-    h('tbody', {}, rows),
-    h('tfoot', {}, [h('tr', {}, footCells)]),
-  ])]);
-
-  const canvas = h('canvas', { width: '900', height: '700' });
-  const descriptors = h('div', { class: 'descriptor-list' }, E.MSF_DOMAINS.map((d) => h('div', { class: 'descriptor-card' }, [
-    h('div', { class: 'descriptor-head' }, [
-      h('h4', { text: d.label }),
-      h('span', { class: 'score-pill', text: `საშუალო ქულა: ${E.msfFormatNumber(averages[d.key])}` }),
-    ]),
-      h('div', { style: 'margin-top:6px', text: E.getDescriptorText(d.key, averages[d.key]) }),
-  ])));
-  const legend = h('div', { class: 'legend-grid' }, E.MSF_DOMAINS.map((d) => h('div', { class: 'legend-item' }, [
-    h('span', { text: d.label }),
-    h('strong', { text: E.msfFormatNumber(averages[d.key]) }),
-  ])));
-
-  const printBtn = h('button', { class: 'warn no-print', text: 'ბეჭდვა', onClick: () => window.print() });
-  body.appendChild(h('div', { class: 'report-shell msf-report' }, [
-    h('div', { class: 'page-title' }, [
-      h('h1', { text: 'MSF / 360° უკუკავშირის შეფასება' }),
-      h('p', { text: 'რეზიუმე, საშუალო დომენური ქულები და რადარული დიაგრამა.' }),
-    ]),
-    h('div', { class: 'resume-student-card' }, [
-      h('div', { class: 'resume-student-grid' }, [
-        ...reportMetaBoxes(student, [['ჩანაწერები', String(entries.length)]]),
-      ]),
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'section-title-row' }, [h('h2', { text: 'შემფასებლების ცხრილი' }), h('span', { class: 'badge', text: `ჩანაწერები: ${entries.length}` })]),
-      table,
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'section-title-row' }, [h('h2', { text: 'დომენების საშუალო ქულების რადარული დიაგრამა' })]),
-      h('div', { class: 'chart-box' }, [h('div', { class: 'chart-canvas-wrap' }, [canvas]), legend]),
-    ]),
-    h('div', { class: 'report-card' }, [
-      h('div', { class: 'resume-header' }, [h('h2', { text: 'ავტომატური რეზიუმე' }), h('h3', { text: `${student.lastName} ${student.firstName}` })]),
-      descriptors,
-    ]),
-    h('div', { class: 'row no-print' }, [printBtn]),
-  ]));
-  E.drawMsfRadar(canvas, averages);
 }
 
 function kbox(k, v) { return h('div', { class: 'box' }, [h('div', { class: 'k', text: k }), h('div', { class: 'v', text: v })]); }
@@ -928,6 +1027,9 @@ function openGroupImport(host) {
   const deptSel = selectEl('gi-dept', deptOptions(false), state.me.departmentId || '');
   const yearSel = selectEl('gi-year', academicYearOptions(new Date().getFullYear(), 12), '');
   const nameInput = h('input', { type: 'text', placeholder: 'ჯგუფის დასახელება (სურვილისამებრ)' });
+  const curationInput = h('input', { type: 'text', placeholder: 'კურაციის დასახელება' });
+  const curationStartInput = h('input', { type: 'date' });
+  const curationEndInput = h('input', { type: 'date' });
   const shech = selectEl('gi-shech', [{ value: 'no', label: 'არა' }, { value: 'yes', label: 'დიახ (შეჭრილია)' }], 'no');
   const fileInput = h('input', { type: 'file', accept: 'application/pdf' });
   const metaHost = h('div', { class: 'empty-note', text: 'აირჩიეთ PDF ფაილი. მონაცემები ჯერ არ შეინახება.' });
@@ -973,6 +1075,9 @@ function openGroupImport(host) {
         h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი *' }), deptSel]),
         h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი *' }), yearSel]),
         h('div', { class: 'field' }, [h('label', { text: 'ჯგუფის სახელი' }), nameInput]),
+        h('div', { class: 'field' }, [h('label', { text: 'კურაცია *' }), curationInput]),
+        h('div', { class: 'field' }, [h('label', { text: 'კურაციის დაწყება *' }), curationStartInput]),
+        h('div', { class: 'field' }, [h('label', { text: 'კურაციის დასრულება *' }), curationEndInput]),
         h('div', { class: 'field' }, [h('label', { text: 'შეჭრილია თუ არა' }), shech]),
         h('div', { class: 'field' }, [h('label', { text: 'PDF ფაილი *' }), fileInput]),
       ]),
@@ -984,7 +1089,9 @@ function openGroupImport(host) {
   });
   cancelBtn.addEventListener('click', () => modal.close());
   saveBtn.addEventListener('click', guardButton(saveBtn, async () => {
-    if (!deptSel.value || !yearSel.value) { toast('აირჩიეთ დეპარტამენტი და სასწავლო წელი.', 'error'); return; }
+    if (!deptSel.value || !yearSel.value || !curationInput.value.trim() || !curationStartInput.value || !curationEndInput.value) {
+      toast('შეავსეთ დეპარტამენტი, სასწავლო წელი და კურაციის ველები.', 'error'); return;
+    }
     if (!parsed || !parsed.students.length) { toast('PDF-დან სტუდენტები ვერ ამოიცნო.', 'error'); return; }
     const groupName = nameInput.value.trim() || `ჯგუფი ${parsed.group || ''}`.trim();
     const studentRows = parsed.students.map((s) => ({
@@ -994,6 +1101,9 @@ function openGroupImport(host) {
       semester: parsed.semester,
       course: parsed.course,
       academicYear: yearSel.value,
+      curation: curationInput.value.trim(),
+      curationStart: curationStartInput.value,
+      curationEnd: curationEndInput.value,
       isShechrili: shech.value === 'yes',
     }));
     try {
@@ -1005,6 +1115,9 @@ function openGroupImport(host) {
         course: parsed.course || null,
         group: parsed.group || groupName,
         specialty: parsed.specialty || null,
+        curation: curationInput.value.trim(),
+        curationStart: curationStartInput.value,
+        curationEnd: curationEndInput.value,
         isShechrili: shech.value === 'yes',
       }, studentRows, state.me.uid);
       toast('ჯგუფი და სტუდენტები დაემატა.', 'success');
@@ -1070,6 +1183,9 @@ function openStudentForm(host, existing = null) {
   const semester = h('input', { type: 'text', value: existing?.semester || '' });
   const course = h('input', { type: 'text', value: existing?.course || '' });
   const year = selectEl('st-year', academicYearOptions(new Date().getFullYear(), 12), existing?.academicYear || '');
+  const curation = h('input', { type: 'text', value: existing?.curation || '', placeholder: 'კურაციის დასახელება' });
+  const curationStart = h('input', { type: 'date', value: existing?.curationStart || '' });
+  const curationEnd = h('input', { type: 'date', value: existing?.curationEnd || '' });
   const shech = selectEl('st-shech', [{ value: '', label: 'აირჩიეთ' }, { value: 'yes', label: 'დიახ' }, { value: 'no', label: 'არა' }],
     existing ? (existing.isShechrili ? 'yes' : 'no') : '');
   const canChooseDept = state.me.isAdmin;
@@ -1085,6 +1201,9 @@ function openStudentForm(host, existing = null) {
     h('div', { class: 'field' }, [h('label', { text: 'სემესტრი *' }), semester]),
     h('div', { class: 'field' }, [h('label', { text: 'კურსი *' }), course]),
     h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი *' }), year]),
+    h('div', { class: 'field' }, [h('label', { text: 'კურაცია *' }), curation]),
+    h('div', { class: 'field' }, [h('label', { text: 'კურაციის დაწყება *' }), curationStart]),
+    h('div', { class: 'field' }, [h('label', { text: 'კურაციის დასრულება *' }), curationEnd]),
     h('div', { class: 'field' }, [h('label', { text: 'შეჭრილია თუ არა *' }), shech]),
   ];
   if (deptSel) fields.push(h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), deptSel]));
@@ -1096,7 +1215,8 @@ function openStudentForm(host, existing = null) {
 
   saveBtn.addEventListener('click', guardButton(saveBtn, async () => {
     if (!firstName.value.trim() || !lastName.value.trim() || !group.value.trim() ||
-        !semester.value.trim() || !course.value.trim() || !year.value.trim() || !shech.value) {
+        !semester.value.trim() || !course.value.trim() || !year.value.trim() ||
+        !curation.value.trim() || !curationStart.value || !curationEnd.value || !shech.value) {
       toast('შეავსეთ ყველა სავალდებულო ველი (*).', 'error'); return;
     }
     const departmentId = canChooseDept ? (deptSel.value || null) : state.me.departmentId;
@@ -1105,6 +1225,7 @@ function openStudentForm(host, existing = null) {
       phone: phone.value.trim(), group: group.value.trim(),
       semester: semester.value.trim(), course: course.value.trim(),
       academicYear: year.value.trim(), isShechrili: shech.value === 'yes',
+      curation: curation.value.trim(), curationStart: curationStart.value, curationEnd: curationEnd.value,
       departmentId,
     };
     try {
