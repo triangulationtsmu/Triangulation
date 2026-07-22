@@ -1,8 +1,9 @@
 // Public, unauthenticated anonymous UCEEM form.
-import { getCampaign, fnSubmitUceem } from './api.js';
+import { getCampaign, createUceemResponse } from './api.js';
 import { h, toast, guardButton, clear } from './ui.js';
 import {
   UCEEM_SECTIONS, UCEEM_FIXED_SCALE_LABELS, UCEEM_TOTAL_ITEMS, roleLabel,
+  computeUceemScores,
 } from './engines.js';
 
 const root = () => document.getElementById('uceem-root');
@@ -102,7 +103,20 @@ function renderForm(campaign, target) {
     }
     if (answered === 0) { toast('მინიმუმ ერთი პასუხი აუცილებელია.', 'error'); return; }
     try {
-      await fnSubmitUceem({ campaignId, targetUserId: target.userId, answers });
+      // Scores computed client-side; payload carries NO respondent identity.
+      const calculatedScores = computeUceemScores(answers);
+      await createUceemResponse({
+        campaignId,
+        targetUserId: target.userId,
+        targetRole: target.role || null,
+        targetName: target.name || null,
+        departmentId: campaign.departmentId || null,
+        academicYear: campaign.academicYear || null,
+        semester: campaign.semester || null,
+        group: campaign.group || null,
+        answers,
+        calculatedScores,
+      });
       done.add(target.userId);
       toast('მადლობა! თქვენი ანონიმური შეფასება გაიგზავნა.', 'success');
       renderTargets(campaign);

@@ -453,6 +453,25 @@ export const UCEEM_TOTAL_ITEMS = UCEEM_SECTIONS.reduce((s, sec) => s + sec.items
 
 export function uceemPct(score, max) { return max ? Math.round((score / max) * 1000) / 10 : 0; }
 
+// Client-side UCEEM scoring (Spark: no Cloud Function). Mirrors the fixed
+// structure; validates 1-5 and ignores unanswered items.
+export function computeUceemScores(answers) {
+  const sections = {}; let total = 0, answered = 0;
+  UCEEM_SECTIONS.forEach((sec) => {
+    let secTotal = 0, secAnswered = 0;
+    sec.items.forEach((_, idx) => {
+      const raw = answers[`${sec.id}.${idx + 1}`];
+      if (raw === undefined || raw === null || raw === '') return;
+      const v = Number(raw);
+      if (!Number.isInteger(v) || v < 1 || v > 5) return;
+      secTotal += v; secAnswered += 1;
+    });
+    sections[sec.id] = { total: secTotal, answered: secAnswered, max: sec.max };
+    total += secTotal; answered += secAnswered;
+  });
+  return { total, totalMax: UCEEM_TOTAL_MAX, answered, sections };
+}
+
 export function uceemBand(p) {
   if (p < 50) return ['მნიშვნელოვნად გასაუმჯობესებელი!', 'კლინიკურ სასწავლო გარემოში მრავლად ჩანს სტრუქტურული ან მხარდაჭერის დეფიციტი! სასურველია მიზნობრივი ცვლილებების დაგეგმვა!'];
   if (p < 65) return ['საშუალოზე დაბალი', 'არსებობს პოზიტიური ელემენტები, თუმცა გარემო არ არის სტაბილურად მხარდამჭერი ან თანმიმდევრული.'];

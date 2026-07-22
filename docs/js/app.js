@@ -1,7 +1,6 @@
 // =========================================================================
 // app.js — Triangulation SPA: auth gate, router, and all authenticated views.
 // =========================================================================
-import { auth, signInWithCustomToken, signOut, onAuthStateChanged } from './firebase.js';
 import * as api from './api.js';
 import { h, toast, openModal, confirmDialog, guardButton, clear } from './ui.js';
 import * as E from './engines.js';
@@ -10,42 +9,40 @@ const state = {
   me: null,            // { uid, firstName, lastName, role, isAdmin, departmentId, active }
   departments: [],
   view: 'workspace',
-  booting: true,
 };
 
 const appRoot = () => document.getElementById('app');
 
 // -------------------------------------------------------------------------
+// session (localStorage — client-side auth, no Firebase Auth)
+// -------------------------------------------------------------------------
+const SESSION_KEY = 'triangulation_session';
+function saveSession(p) { try { localStorage.setItem(SESSION_KEY, JSON.stringify(p)); } catch (_) {} }
+function loadSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (_) { return null; } }
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (_) {} }
+
+// -------------------------------------------------------------------------
 // boot
 // -------------------------------------------------------------------------
-onAuthStateChanged(auth, async (user) => {
-  if (!user) { state.me = null; renderLogin(); return; }
+async function boot() {
+  try { await api.ensureAdminSeed(); } catch (e) { console.warn('admin seed skipped:', e && e.message); }
+  const sess = loadSession();
+  if (!sess || !sess.uid) { renderLogin(); return; }
   try {
-    const tok = await user.getIdTokenResult(true);
-    const profile = await api.getUserDoc(user.uid);
-    if (!profile) { await signOut(auth); renderLogin(); return; }
-    if (profile.active === false) {
-      await signOut(auth);
-      renderLogin('თქვენი ანგარიში გათიშულია. მიმართეთ ადმინისტრატორს.');
-      return;
-    }
-    state.me = {
-      uid: user.uid,
-      username: profile.username,
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      role: tok.claims.role || profile.role,
-      isAdmin: tok.claims.isAdmin === true || profile.isAdmin === true,
-      departmentId: tok.claims.departmentId || profile.departmentId || null,
-    };
+    const fresh = await api.fetchProfile(sess.uid);
+    if (!fresh) { clearSession(); renderLogin(); return; }
+    if (fresh.active === false) { clearSession(); renderLogin('თქვენი ანგარიში გათიშულია. მიმართეთ ადმინისტრატორს.'); return; }
+    state.me = fresh;
+    saveSession(fresh);
     state.departments = await safe(() => api.listDepartments(), []);
     renderApp();
   } catch (err) {
     console.error(err);
-    await signOut(auth);
+    clearSession();
     renderLogin('სესიის აღდგენა ვერ მოხერხდა. გთხოვთ, შეხვიდეთ თავიდან.');
   }
-});
+}
+boot();
 
 async function safe(fn, fallback) {
   try { return await fn(); } catch (e) { console.error(e); return fallback; }
@@ -67,17 +64,15 @@ function renderLogin(message) {
     if (!u || !p) { msg.textContent = 'შეავსეთ მომხმარებელი და პაროლი.'; return; }
     msg.style.color = '#6b7280'; msg.textContent = 'მოწმდება…';
     try {
-      const res = await api.fnLogin({ username: u, password: p });
-      await signInWithCustomToken(auth, res.data.token);
-      // onAuthStateChanged takes over from here.
+      const profile = await api.loginUser(u, p);
+      saveSession(profile);
+      state.me = profile;
+      state.view = 'workspace';
+      state.departments = await safe(() => api.listDepartments(), []);
+      renderApp();
     } catch (e) {
       msg.style.color = '#b91c1c';
-      const code = e && e.code ? String(e.code) : '';
-      if (code.includes('internal') || code.includes('unavailable') || code.includes('deadline')) {
-        msg.textContent = 'სერვერთან დაკავშირება ვერ მოხერხდა. სცადეთ მოგვიანებით.';
-      } else {
-        msg.textContent = (e && e.message) ? e.message : 'შესვლა ვერ მოხერხდა.';
-      }
+      msg.textContent = (e && e.message) ? e.message : 'შესვლა ვერ მოხერხდა.';
     }
   }
   const guarded = guardButton(btn, doLogin);
@@ -145,10 +140,9 @@ function renderApp() {
   renderView();
 }
 
-async function doLogout() {
-  try { await signOut(auth); } catch (_) {}
+function doLogout() {
+  clearSession();
   state.me = null; state.view = 'workspace';
-  try { localStorage.clear(); } catch (_) {}
   renderLogin();
 }
 
@@ -617,7 +611,7 @@ async function viewUsers(host) {
           if (u.uid === state.me.uid && u.active !== false) { toast('საკუთარი ანგარიშის გათიშვა შეუძლებელია.', 'error'); return; }
           const ok = await confirmDialog(`დარწმუნებული ხართ, რომ გსურთ „${u.firstName} ${u.lastName}“-ის ${u.active !== false ? 'გათიშვა' : 'გააქტიურება'}?`);
           if (!ok) return;
-          try { await api.fnSetUserActive({ uid: u.uid, active: !(u.active !== false) }); toast('განახლდა.', 'success'); viewUsers(host); }
+          try { await api.setUserActive(u.uid, !(u.active !== false)); toast('განახლდა.', 'success'); viewUsers(host); }
           catch (e) { toast(e.message || 'ვერ განახლდა', 'error'); }
         },
       }),
@@ -667,7 +661,7 @@ function openUserForm(host) {
       toast('შეავსეთ ყველა სავალდებულო ველი (*).', 'error'); return;
     }
     try {
-      await api.fnCreateUser(data);
+      await api.createUserAccount(data, state.me.uid);
       toast('მომხმარებელი შეიქმნა.', 'success');
       modal.close(); viewUsers(host);
     } catch (e) { toast(e.message || 'ვერ შეიქმნა', 'error'); }
@@ -686,7 +680,7 @@ function openResetPassword(u) {
   cancelBtn.addEventListener('click', () => modal.close());
   saveBtn.addEventListener('click', guardButton(saveBtn, async () => {
     if (!p1.value) { toast('შეიყვანეთ ახალი პაროლი.', 'error'); return; }
-    try { await api.fnResetPassword({ uid: u.uid, newPassword: p1.value }); toast('პაროლი განახლდა.', 'success'); modal.close(); }
+    try { await api.resetUserPassword(u.uid, p1.value); toast('პაროლი განახლდა.', 'success'); modal.close(); }
     catch (e) { toast(e.message || 'ვერ განახლდა', 'error'); }
   }));
 }
@@ -1074,7 +1068,7 @@ async function viewProfile(host) {
     if (!cur.value || !n1.value) { toast('შეავსეთ ველები.', 'error'); return; }
     if (n1.value !== n2.value) { toast('ახალი პაროლები არ ემთხვევა.', 'error'); return; }
     try {
-      await api.fnChangePassword({ currentPassword: cur.value, newPassword: n1.value });
+      await api.changeUserPassword(state.me.uid, cur.value, n1.value);
       toast('პაროლი შეიცვალა.', 'success');
       cur.value = n1.value = n2.value = '';
     } catch (e) { toast(e.message || 'ვერ შეიცვალა', 'error'); }

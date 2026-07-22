@@ -1,17 +1,110 @@
-// Firestore data-access layer + Cloud Function callables.
+// Data-access layer + client-side authentication (no Firebase Auth / Functions).
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp,
+  query, where, orderBy, limit, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-import { db, callable } from './firebase.js';
+import { db, normalizeUsername, randomSalt, hashPassword } from './firebase.js';
 
-// ---- callables ----------------------------------------------------------
-export const fnLogin = callable('login');
-export const fnCreateUser = callable('adminCreateUser');
-export const fnResetPassword = callable('adminResetPassword');
-export const fnSetUserActive = callable('adminSetUserActive');
-export const fnChangePassword = callable('changeOwnPassword');
-export const fnSubmitUceem = callable('submitUceem');
+// =========================================================================
+// Authentication (app-level, against Firestore)
+//   users/{uid}        : profile (NO password)
+//   credentials/{uid}  : { salt, passwordHash }        (never shown in UI)
+//   usernameIndex/{n}  : { uid, username }             (uniqueness + lookup)
+// =========================================================================
+function profileFrom(uid, u) {
+  return {
+    uid, username: u.username, firstName: u.firstName, lastName: u.lastName,
+    role: u.role, isAdmin: u.isAdmin === true, departmentId: u.departmentId || null,
+    active: u.active !== false,
+  };
+}
+
+export async function loginUser(username, password) {
+  const normalized = normalizeUsername(username);
+  const idx = await getDoc(doc(db, 'usernameIndex', normalized));
+  if (!idx.exists()) throw new Error('მომხმარებელი ან პაროლი არასწორია.');
+  const uid = idx.data().uid;
+
+  const userSnap = await getDoc(doc(db, 'users', uid));
+  if (!userSnap.exists()) throw new Error('მომხმარებელი ან პაროლი არასწორია.');
+  const u = userSnap.data();
+  if (u.active === false) throw new Error('მომხმარებელი გათიშულია. მიმართეთ ადმინისტრატორს.');
+
+  const credSnap = await getDoc(doc(db, 'credentials', uid));
+  if (!credSnap.exists()) throw new Error('მომხმარებელი ან პაროლი არასწორია.');
+  const { salt, passwordHash } = credSnap.data();
+  const attempt = await hashPassword(password, salt);
+  if (attempt !== passwordHash) throw new Error('მომხმარებელი ან პაროლი არასწორია.');
+
+  return profileFrom(uid, u);
+}
+
+// Re-fetch a profile (used on boot to validate a stored session).
+export async function fetchProfile(uid) {
+  const s = await getDoc(doc(db, 'users', uid));
+  return s.exists() ? profileFrom(uid, s.data()) : null;
+}
+
+export async function createUserAccount(data, creatorUid) {
+  const normalized = normalizeUsername(data.username);
+  if (!normalized) throw new Error('username სავალდებულოა.');
+  if (!data.password) throw new Error('პაროლი სავალდებულოა.');
+  const idxRef = doc(db, 'usernameIndex', normalized);
+  if ((await getDoc(idxRef)).exists()) throw new Error('ეს username უკვე გამოყენებულია.');
+
+  const ref = doc(collection(db, 'users'));
+  const uid = ref.id;
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(data.password, salt);
+  const now = serverTimestamp();
+
+  await setDoc(ref, {
+    uid, username: data.username, normalizedUsername: normalized,
+    firstName: data.firstName, lastName: data.lastName,
+    role: data.role, isAdmin: data.isAdmin === true,
+    departmentId: data.departmentId || null,
+    active: data.active !== false,
+    createdBy: creatorUid || null, createdAt: now, updatedAt: now,
+  });
+  await setDoc(doc(db, 'credentials', uid), { salt, passwordHash, passwordUpdatedAt: now });
+  await setDoc(idxRef, { uid, username: data.username, createdAt: now });
+  return uid;
+}
+
+export async function resetUserPassword(uid, newPassword) {
+  if (!newPassword) throw new Error('ახალი პაროლი სავალდებულოა.');
+  const salt = randomSalt();
+  const passwordHash = await hashPassword(newPassword, salt);
+  await setDoc(doc(db, 'credentials', uid),
+    { salt, passwordHash, passwordUpdatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function changeUserPassword(uid, currentPassword, newPassword) {
+  const credSnap = await getDoc(doc(db, 'credentials', uid));
+  if (!credSnap.exists()) throw new Error('ავტორიზაციის მონაცემები ვერ მოიძებნა.');
+  const { salt, passwordHash } = credSnap.data();
+  if ((await hashPassword(currentPassword, salt)) !== passwordHash) {
+    throw new Error('მიმდინარე პაროლი არასწორია.');
+  }
+  await resetUserPassword(uid, newPassword);
+}
+
+export async function setUserActive(uid, active) {
+  await updateDoc(doc(db, 'users', uid), { active: !!active, updatedAt: serverTimestamp() });
+}
+
+// One-time bootstrap of the initial administrator (idempotent).
+export async function ensureAdminSeed() {
+  const normalized = 'kakha';
+  const idx = await getDoc(doc(db, 'usernameIndex', normalized));
+  if (idx.exists()) return false;
+  await createUserAccount({
+    username: 'kakha', password: '1234',
+    firstName: 'კახაბერ', lastName: 'ჭერლიძე',
+    role: 'department_head', isAdmin: true, departmentId: null, active: true,
+  }, 'seed');
+  return true;
+}
 
 // ---- departments --------------------------------------------------------
 export async function listDepartments() {
@@ -34,14 +127,7 @@ export async function listUsers() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export async function getUserDoc(uid) {
-  const s = await getDoc(doc(db, 'users', uid));
-  return s.exists() ? { id: s.id, ...s.data() } : null;
-}
-
 // ---- students -----------------------------------------------------------
-// Server-side equality filters (indexed): departmentId, group. The rest is
-// applied client-side so multiple filters can combine freely.
 export async function queryStudents({ departmentId = null, group = null } = {}) {
   const clauses = [];
   if (departmentId) clauses.push(where('departmentId', '==', departmentId));
@@ -97,12 +183,9 @@ export async function getCampaign(id) {
 }
 export async function createCampaign(data, uid) {
   return addDoc(collection(db, 'uceemCampaigns'), {
-    title: data.title || null,
-    departmentId: data.departmentId || null,
-    academicYear: data.academicYear || null,
-    semester: data.semester || null,
-    group: data.group || null,
-    targets: data.targets || [], // [{userId, name, role}]
+    title: data.title || null, departmentId: data.departmentId || null,
+    academicYear: data.academicYear || null, semester: data.semester || null,
+    group: data.group || null, targets: data.targets || [],
     active: data.active !== false,
     createdBy: uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });
@@ -113,6 +196,14 @@ export async function setCampaignActive(id, active) {
 export async function listUceemResponses() {
   const snap = await getDocs(collection(db, 'uceemResponses'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+// Anonymous submission — writes ONLY assessment data, never respondent identity.
+export async function createUceemResponse(payload) {
+  const responseId = doc(collection(db, 'uceemResponses')).id;
+  await setDoc(doc(db, 'uceemResponses', responseId), {
+    anonymousResponseId: responseId, ...payload, createdAt: serverTimestamp(),
+  });
+  return responseId;
 }
 
 // ---- helpers ------------------------------------------------------------

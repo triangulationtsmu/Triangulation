@@ -1,126 +1,48 @@
 rules_version = '2';
 
 // ==========================================================================
-// Triangulation — Firestore Security Rules
+// Triangulation — Firestore Security Rules (client-side model)
 //
-// Access model (defence in depth; Cloud Functions enforce the same checks):
-//  - Authentication is via custom tokens minted by the `login` function.
-//    The token carries custom claims: isAdmin (bool), role (string),
-//    departmentId (string|null). Rules read request.auth.token.*.
-//  - privateCredentials is NEVER readable/writable by any client.
-//  - User & credential mutations happen ONLY through Cloud Functions
-//    (admin SDK bypasses these rules), so all client writes are denied.
-//  - UCEEM responses are written ONLY by the (unauthenticated) submit
-//    function — clients can neither read nor write them directly, which
-//    keeps responses anonymous and scored server-side.
+// This build uses NO Firebase Auth and NO Cloud Functions (free Spark plan).
+// Authentication is performed by the app against `users` / `credentials`.
+// Because requests are unauthenticated at the Firestore layer, these rules
+// cannot enforce per-user identity — the APPLICATION enforces roles.
+//
+// Passwords are stored only as salted SHA-256 hashes in `credentials`
+// (never plaintext). UCEEM responses are constrained so they can never carry
+// respondent-identifying fields (anonymity is enforced here).
+//
+// ⚠️ TRADE-OFF: without Firebase Auth the data is broadly accessible to anyone
+// holding the public web config. This is an intentional choice for the free
+// plan. For stronger isolation use the Firebase-Auth / Functions build (Blaze).
 // ==========================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null;
-    }
-    function isAdmin() {
-      return signedIn() && request.auth.token.isAdmin == true;
-    }
-    function myDept() {
-      return signedIn() ? request.auth.token.departmentId : null;
-    }
-    function myRole() {
-      return signedIn() ? request.auth.token.role : null;
-    }
-    // Staff allowed to author workplace-based assessments.
-    function isEvaluatorRole() {
-      return myRole() in [
-        'department_head', 'curator', 'doctor', 'nurse', 'lecturer', 'assessor'
-      ];
-    }
+    // Reference data & profiles — app-managed.
+    match /departments/{id}      { allow read, write: if true; }
+    match /users/{id}            { allow read, write: if true; }
+    match /credentials/{id}      { allow read, write: if true; }
+    match /usernameIndex/{id}    { allow read, write: if true; }
+    match /students/{id}         { allow read, write: if true; }
+    match /evaluations/{id}      { allow read, write: if true; }
+    match /uceemCampaigns/{id}   { allow read, write: if true; }
 
-    // ---- departments -----------------------------------------------------
-    match /departments/{departmentId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isAdmin();
+    // Anonymous UCEEM responses: readable (aggregation), create-only, and the
+    // document may contain ONLY assessment fields — never a respondent uid,
+    // student id, name, email, phone, ip or user-agent. Enforced here.
+    match /uceemResponses/{id} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly([
+        'anonymousResponseId', 'campaignId', 'targetUserId', 'targetRole',
+        'targetName', 'departmentId', 'academicYear', 'semester', 'group',
+        'answers', 'calculatedScores', 'createdAt'
+      ]);
+      allow update, delete: if false;
     }
 
-    // ---- users (profiles, NO passwords) ----------------------------------
-    // Readable by any signed-in user (needed for staff pickers / workspace).
-    // All writes go through Cloud Functions (adminCreateUser, etc.).
-    match /users/{uid} {
-      allow read: if signedIn();
-      allow write: if false;
-    }
-
-    // ---- usernameIndex (uniqueness map) ----------------------------------
-    match /usernameIndex/{normalizedUsername} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    // ---- privateCredentials (password hashes) — fully sealed -------------
-    match /privateCredentials/{uid} {
-      allow read, write: if false;
-    }
-
-    // ---- students --------------------------------------------------------
-    match /students/{studentId} {
-      // Admin sees all; other staff scoped to their own department.
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.departmentId == myDept());
-
-      allow create: if isAdmin()
-        || (signedIn() && myRole() == 'department_head'
-            && request.resource.data.departmentId == myDept());
-
-      allow update: if isAdmin()
-        || (signedIn() && myRole() == 'department_head'
-            && resource.data.departmentId == myDept()
-            && request.resource.data.departmentId == myDept());
-
-      allow delete: if isAdmin();
-    }
-
-    // ---- evaluations (Mini-CEX / CBD / DOPS / MSF) -----------------------
-    match /evaluations/{evaluationId} {
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.departmentId == myDept());
-
-      // The evaluator identity is bound to the caller — cannot be spoofed.
-      allow create: if signedIn()
-        && isEvaluatorRole()
-        && request.resource.data.evaluatorUid == request.auth.uid
-        && request.resource.data.type in ['mini_cex', 'cbd', 'dops', 'msf']
-        && (isAdmin() || request.resource.data.departmentId == myDept());
-
-      allow update: if signedIn()
-        && resource.data.evaluatorUid == request.auth.uid
-        && request.resource.data.evaluatorUid == request.auth.uid
-        && request.resource.data.type == resource.data.type;
-
-      allow delete: if isAdmin()
-        || (signedIn() && resource.data.evaluatorUid == request.auth.uid);
-    }
-
-    // ---- UCEEM campaigns -------------------------------------------------
-    // Active campaigns are publicly readable so the anonymous form can load
-    // its context (targets, questions). Only admins manage them.
-    match /uceemCampaigns/{campaignId} {
-      allow read: if isAdmin() || resource.data.active == true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // ---- UCEEM responses (anonymous) -------------------------------------
-    // Written ONLY by the submitUceem Cloud Function (admin SDK). Clients
-    // can never write (guarantees anonymity + server-side scoring) and only
-    // admins may read the aggregate data.
-    match /uceemResponses/{responseId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    // Default deny everything else.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // Everything else is denied.
+    match /{document=**} { allow read, write: if false; }
   }
 }

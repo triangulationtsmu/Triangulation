@@ -1,20 +1,25 @@
 // Firebase initialisation (modular v10 SDK from the gstatic CDN).
+// Client-side model: Firestore only (no Firebase Auth, no Cloud Functions).
+// App-level authentication is handled in api.js against the `users` /
+// `credentials` collections. Works on the free Spark plan.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
-import {
-  getAuth, signInWithCustomToken, signOut, onAuthStateChanged, setPersistence,
-  browserLocalPersistence,
-} from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js';
-import { firebaseConfig, FUNCTIONS_REGION } from './config.js';
+import { firebaseConfig } from './config.js';
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const functions = getFunctions(app, FUNCTIONS_REGION);
 
-// Persist the session in localStorage so a reload keeps the user signed in.
-setPersistence(auth, browserLocalPersistence).catch(() => {});
+export function normalizeUsername(u) { return String(u || '').trim().toLowerCase(); }
 
-export const callable = (name) => httpsCallable(functions, name);
-export { signInWithCustomToken, signOut, onAuthStateChanged };
+// Salted SHA-256 (Web Crypto). Not as strong as bcrypt, but keeps plaintext
+// passwords out of the database. Must stay identical to scripts/seedAdmin.js.
+export function randomSalt() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+export async function hashPassword(password, salt) {
+  const data = new TextEncoder().encode(`${salt}:${password}`);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
