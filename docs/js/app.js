@@ -695,7 +695,10 @@ async function renderStandaloneReport(modal, fileName, bridgeScript) {
     clear(modal.body);
     const iframe = h('iframe', { class: 'tool-frame', title: fileName });
     modal.body.appendChild(iframe);
-    iframe.srcdoc = html.replace('</body>', bridgeScript + '</body>');
+    const bodyClose = html.toLowerCase().lastIndexOf('</body>');
+    iframe.srcdoc = bodyClose >= 0
+      ? html.slice(0, bodyClose) + bridgeScript + html.slice(bodyClose)
+      : html + bridgeScript;
   } catch (e) {
     clear(modal.body);
     modal.body.appendChild(h('div', { class: 'empty-note', text: 'ანგარიშის ჩატვირთვა ვერ მოხერხდა.' }));
