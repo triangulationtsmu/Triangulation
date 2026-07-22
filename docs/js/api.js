@@ -1,9 +1,15 @@
 // Data-access layer + client-side authentication (no Firebase Auth / Functions).
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, serverTimestamp,
+  query, where, orderBy, limit, serverTimestamp, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
 import { db, normalizeUsername, randomSalt, hashPassword } from './firebase.js';
+
+function randomPublicKey() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // =========================================================================
 // Authentication (app-level, against Firestore)
@@ -136,15 +142,18 @@ export async function queryStudents({ departmentId = null, group = null } = {}) 
     ? query(collection(db, 'students'), ...clauses)
     : query(collection(db, 'students'));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .filter((s) => s.groupArchived !== true);
 }
 export async function createStudent(data, uid) {
   return addDoc(collection(db, 'students'), {
     firstName: data.firstName, lastName: data.lastName,
-    phone: String(data.phone || ''), group: data.group,
+    phone: String(data.phone || ''), email: data.email || null,
+    englishName: data.englishName || null, group: data.group,
     semester: data.semester, course: data.course,
     isShechrili: !!data.isShechrili, academicYear: data.academicYear,
-    departmentId: data.departmentId || null,
+    departmentId: data.departmentId || null, groupId: data.groupId || null,
+    groupArchived: data.groupArchived === true,
     createdBy: uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });
 }
@@ -153,6 +162,54 @@ export async function updateStudent(id, data) {
 }
 export async function deleteStudent(id) {
   return deleteDoc(doc(db, 'students', id));
+}
+
+// ---- student groups -----------------------------------------------------
+export async function listStudentGroups() {
+  const snap = await getDocs(collection(db, 'studentGroups'));
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  rows.sort((a, b) => (`${a.academicYear || ''} ${a.group || ''}`).localeCompare(`${b.academicYear || ''} ${b.group || ''}`, 'ka'));
+  return rows;
+}
+export async function createStudentGroupWithStudents(groupData, students, uid) {
+  const batch = writeBatch(db);
+  const groupRef = doc(collection(db, 'studentGroups'));
+  const now = serverTimestamp();
+  batch.set(groupRef, {
+    ...groupData,
+    archived: false,
+    studentCount: students.length,
+    createdBy: uid,
+    createdAt: now,
+    updatedAt: now,
+  });
+  students.forEach((student) => {
+    const studentRef = doc(collection(db, 'students'));
+    batch.set(studentRef, {
+      ...student,
+      groupId: groupRef.id,
+      groupArchived: false,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  await batch.commit();
+  return groupRef.id;
+}
+export async function setStudentGroupArchived(groupId, archived) {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'studentGroups', groupId), { archived: !!archived, updatedAt: serverTimestamp() });
+  const snap = await getDocs(query(collection(db, 'students'), where('groupId', '==', groupId)));
+  snap.docs.forEach((row) => batch.update(row.ref, { groupArchived: !!archived, updatedAt: serverTimestamp() }));
+  await batch.commit();
+}
+export async function deleteStudentGroup(groupId) {
+  const batch = writeBatch(db);
+  const snap = await getDocs(query(collection(db, 'students'), where('groupId', '==', groupId)));
+  snap.docs.forEach((row) => batch.delete(row.ref));
+  batch.delete(doc(db, 'studentGroups', groupId));
+  await batch.commit();
 }
 
 // ---- evaluations --------------------------------------------------------
@@ -186,6 +243,7 @@ export async function createCampaign(data, uid) {
     title: data.title || null, departmentId: data.departmentId || null,
     academicYear: data.academicYear || null, semester: data.semester || null,
     group: data.group || null, targets: data.targets || [],
+    publicKey: randomPublicKey(),
     active: data.active !== false,
     createdBy: uid, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   });

@@ -122,12 +122,15 @@ users/{uid}          uid, username, normalizedUsername, firstName, lastName,
 credentials/{uid}    salt, passwordHash (SHA-256), passwordUpdatedAt
 usernameIndex/{norm} uid, username                       (უნიკალურობა + lookup)
 students/{id}        firstName, lastName, phone, group, semester, course,
-                     isShechrili(bool), academicYear, departmentId, ...
+                     isShechrili(bool), academicYear, departmentId, groupId,
+                     groupArchived, email, englishName, ...
+studentGroups/{id}   name, departmentId, academicYear, semester, course, group,
+                     specialty, isShechrili, archived, studentCount, ...
 evaluations/{id}     studentId, type(mini_cex|cbd|dops|msf), departmentId, group,
                      semester, course, academicYear, evaluatorUid,
                      evaluatorFirstName/LastName/Role, answers, scores, summary
 uceemCampaigns/{id}  title, departmentId, academicYear, semester, group,
-                     targets[{userId,name,role}], active, ...
+                     targets[{userId,name,role}], publicKey, active, ...
 uceemResponses/{id}  anonymousResponseId, campaignId, targetUserId, targetRole,
                      departmentId, academicYear, semester, group, answers,
                      calculatedScores, createdAt      (respondent-ის ვინაობა არ ინახება)
@@ -141,12 +144,22 @@ uceemResponses/{id}  anonymousResponseId, campaignId, targetUserId, targetRole,
 - **დეპარტამენტი**: *დეპარტამენტები* → დასახელება (+ კოდი) → დამატება.
 - **სტუდენტი**: *სტუდენტები* → *+ სტუდენტის დამატება*. ფილტრი: სახელი/გვარი/
   ტელეფონი/ჯგუფი/სემესტრი/კურსი/სასწ. წელი/შეჭრილია/დეპარტამენტი.
+- **ჯგუფის PDF-ით დამატება**: ადმინი → *სტუდენტები* →
+  *ჯგუფის დამატება PDF-ით*. აირჩიე დეპარტამენტი, სასწავლო წელი
+  (`2026(შ) - 2026`, `2026 - 2027`, ...), PDF ფაილი და შეამოწმე preview.
+  იმპორტი ქმნის `studentGroups` ჩანაწერს და ყველა სტუდენტს აბამს ამ ჯგუფს.
+- **ჯგუფის დაარქივება/წაშლა**: მხოლოდ ადმინს შეუძლია. დაარქივებული ჯგუფის
+  სტუდენტები სამუშაო სივრცესა და სტუდენტების სიაში აღარ ჩანს; წაშლა შლის
+  ჯგუფს და ამ ჯგუფით იმპორტირებულ სტუდენტებს.
 - **შეფასება**: *სამუშაო სივრცე* → დეპარტამენტი → (წელი/სემესტრი) → ჯგუფი →
   სტუდენტის გასწვრივ **Mini-CEX / CBD / DOPS / MSF / WBA Summary / MSF Resume**.
-  შემფასებელი ავტომატურად ივსება ავტორიზებული პროფილიდან.
+  `kakha` account-ზე შემფასებელი ავტომატურად ივსება კახაბერ ჭერლიძით; სხვა
+  shared role account-ებზე შემფასებელი შეფასების ფორმაში ხელით წერს საკუთარ
+  სახელს და გვარს.
 - **UCEEM კამპანია**: *UCEEM კამპანიები* → კონტექსტი + შესაფასებელი თანამშრომლები.
-- **ანონიმური ბმული**: კამპანიის სტრიქონში **UCEEM ლინკის კოპირება**. იხსნება
-  ავტორიზაციის გარეშე.
+- **ანონიმური ბმული**: კამპანიის სტრიქონში **UCEEM ლინკის კოპირება**. ახალი
+  კამპანიების ბმული შეიცავს დამატებით `publicKey`-ს; მხოლოდ `campaignId`-ით
+  საჯარო გვერდი არაფერს აჩვენებს.
 - **UCEEM შედეგები**: *UCEEM შედეგები* — აგრეგირებული, ანონიმური, ფილტრებით.
 - **პაროლი**: *პროფილი* → საკუთარი პაროლის შეცვლა; ადმინი → *მომხმარებლები* →
   „პაროლის აღდგენა".
@@ -161,6 +174,8 @@ uceemResponses/{id}  anonymousResponseId, campaignId, targetUserId, targetRole,
 - ✅ შემფასებლის ვინაობა ავტორიზებული პროფილიდან იწერება, არა ხელით.
 - ✅ UCEEM პასუხი respondent-ის ვინაობის გარეშე ინახება; rules კრძალავს
   იდენტიფიცირებელ ველებს.
+- ✅ UCEEM საჯარო გვერდი აღარ ხსნის კამპანიას მხოლოდ `campaignId`-ით; საჭიროა
+  იმავე ბმულში არსებული `publicKey`.
 - ⚠️ **მაგრამ** Firebase Auth-ის გარეშე, Firestore ვერ ამოწმებს ვინაობას
   server-დონეზე — ვინც public web config-ს ფლობს, პრინციპში მონაცემებთან
   წვდომა აქვს. RBAC უზრუნველყოფილია **აპლიკაციის დონეზე**.

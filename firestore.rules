@@ -25,6 +25,7 @@ service cloud.firestore {
     match /users/{id}            { allow read, write: if true; }
     match /credentials/{id}      { allow read, write: if true; }
     match /usernameIndex/{id}    { allow read, write: if true; }
+    match /studentGroups/{id}    { allow read, write: if true; }
     match /students/{id}         { allow read, write: if true; }
     match /evaluations/{id}      { allow read, write: if true; }
     match /uceemCampaigns/{id}   { allow read, write: if true; }

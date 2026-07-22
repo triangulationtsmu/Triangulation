@@ -9,6 +9,7 @@ import {
 const root = () => document.getElementById('uceem-root');
 const params = new URLSearchParams(location.search);
 const campaignId = params.get('c');
+const publicKey = params.get('k');
 const done = new Set(); // targetUserId already submitted this session
 
 boot();
@@ -20,6 +21,7 @@ async function boot() {
   catch (e) { console.error(e); fail('კამპანიის ჩატვირთვა ვერ მოხერხდა.'); return; }
   if (!campaign) { fail('კამპანია ვერ მოიძებნა.'); return; }
   if (campaign.active === false) { fail('ეს კამპანია დახურულია.'); return; }
+  if (!campaign.publicKey || campaign.publicKey !== publicKey) { fail('ბმული არასწორია ან ვადაგასულია.'); return; }
   renderTargets(campaign);
 }
 

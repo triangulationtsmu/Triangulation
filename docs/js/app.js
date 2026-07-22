@@ -4,6 +4,9 @@
 import * as api from './api.js';
 import { h, toast, openModal, confirmDialog, guardButton, clear } from './ui.js';
 import * as E from './engines.js';
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
 
 const state = {
   me: null,            // { uid, firstName, lastName, role, isAdmin, departmentId, active }
@@ -190,6 +193,14 @@ function selectEl(id, options, value = '') {
   });
   return s;
 }
+function academicYearOptions(startYear = new Date().getFullYear(), count = 12, includeAll = false) {
+  const opts = includeAll ? [{ value: '', label: 'ყველა სასწავლო წელი' }] : [{ value: '', label: 'აირჩიეთ სასწავლო წელი' }];
+  for (let y = startYear; y < startYear + count; y++) {
+    opts.push({ value: `${y}(შ) - ${y}`, label: `${y}(შ) - ${y}` });
+    opts.push({ value: `${y} - ${y + 1}`, label: `${y} - ${y + 1}` });
+  }
+  return opts;
+}
 
 // =========================================================================
 // WORKSPACE  (dept -> year/semester -> group -> students -> eval buttons)
@@ -201,7 +212,7 @@ async function viewWorkspace(host) {
   const deptSel = canChooseDept
     ? selectEl('ws-dept', deptOptions(false), state.me.departmentId || '')
     : null;
-  const yearInput = h('input', { type: 'text', id: 'ws-year', placeholder: 'მაგ., 2025-2026' });
+  const yearInput = selectEl('ws-year', academicYearOptions(new Date().getFullYear(), 12, true), '');
   const semSel = selectEl('ws-sem', [{ value: '', label: 'ყველა სემესტრი' }].concat(
     ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'].map((s) => ({ value: s, label: s + ' სემესტრი' }))));
   const groupInput = h('input', { type: 'text', id: 'ws-group', placeholder: 'ჯგუფის ნომერი/დასახელება' });
@@ -340,13 +351,15 @@ function openEvalForm(type, student) {
     avgV.textContent = s.average.toFixed(2); judgeV.textContent = s.judgment;
   }
 
-  const evaluatorLine = h('input', { type: 'text', disabled: 'true',
-    value: `${state.me.firstName} ${state.me.lastName} (${E.roleLabel(state.me.role)})` });
+  const evaluatorCanEdit = state.me.username !== 'kakha';
+  const evaluatorFirst = h('input', { type: 'text', value: evaluatorCanEdit ? '' : state.me.firstName, disabled: evaluatorCanEdit ? null : 'true', placeholder: 'სახელი' });
+  const evaluatorLast = h('input', { type: 'text', value: evaluatorCanEdit ? '' : state.me.lastName, disabled: evaluatorCanEdit ? null : 'true', placeholder: 'გვარი' });
 
   const body = h('div', { class: 'stack' }, [
     h('div', { class: 'card', style: 'margin:0' }, [h('div', { class: 'body grid grid-3' }, [
       h('div', { class: 'field' }, [h('label', { text: 'სტუდენტი' }), h('input', { type: 'text', disabled: 'true', value: `${student.lastName} ${student.firstName}` })]),
-      h('div', { class: 'field' }, [h('label', { text: 'შემფასებელი' }), evaluatorLine]),
+      h('div', { class: 'field' }, [h('label', { text: evaluatorCanEdit ? 'შემფასებლის სახელი *' : 'შემფასებლის სახელი' }), evaluatorFirst]),
+      h('div', { class: 'field' }, [h('label', { text: evaluatorCanEdit ? 'შემფასებლის გვარი *' : 'შემფასებლის გვარი' }), evaluatorLast]),
       h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), h('input', { type: 'text', disabled: 'true', value: deptName(student.departmentId || state.me.departmentId) })]),
       caseInput ? h('div', { class: 'field' }, [h('label', { text: form.caseLabel }), caseInput]) : null,
     ].filter(Boolean))]),
@@ -380,6 +393,11 @@ function openEvalForm(type, student) {
     const summary = {};
     form.textFields.forEach((f) => { summary[f.key] = textInputs[f.key].value.trim(); });
     if (caseInput) summary.caseName = caseInput.value.trim();
+    const evaluatorFirstName = evaluatorFirst.value.trim();
+    const evaluatorLastName = evaluatorLast.value.trim();
+    if (!evaluatorFirstName || !evaluatorLastName) {
+      toast('შეიყვანეთ შემფასებლის სახელი და გვარი.', 'error'); return;
+    }
 
     const payload = {
       studentId: student.id, type,
@@ -387,7 +405,7 @@ function openEvalForm(type, student) {
       group: student.group || null, semester: student.semester || null,
       course: student.course || null, academicYear: student.academicYear || null,
       evaluatorUid: state.me.uid,
-      evaluatorFirstName: state.me.firstName, evaluatorLastName: state.me.lastName,
+      evaluatorFirstName, evaluatorLastName,
       evaluatorRole: state.me.role,
       answers, scores, summary,
     };
@@ -697,12 +715,15 @@ async function viewStudents(host) {
   const fGroup = h('input', { type: 'text', placeholder: 'ჯგუფი' });
   const fSem = h('input', { type: 'text', placeholder: 'სემესტრი' });
   const fCourse = h('input', { type: 'text', placeholder: 'კურსი' });
-  const fYear = h('input', { type: 'text', placeholder: 'სასწავლო წელი' });
+  const fYear = selectEl('f-year', academicYearOptions(new Date().getFullYear(), 12, true), '');
   const fShech = selectEl('f-shech', [{ value: '', label: 'ყველა (შეჭრილია?)' }, { value: 'yes', label: 'შეჭრილია: დიახ' }, { value: 'no', label: 'შეჭრილია: არა' }], '');
   const fDept = canChooseDept ? selectEl('f-dept', deptOptions(true), '') : null;
 
   const listHost = h('div', { id: 'st-list' });
   const addBtn = h('button', { text: '+ სტუდენტის დამატება', onClick: () => openStudentForm(host) });
+  const importBtn = state.me.isAdmin
+    ? h('button', { class: 'secondary', text: 'ჯგუფის დამატება PDF-ით', onClick: () => openGroupImport(host) })
+    : null;
 
   async function run() {
     clear(listHost);
@@ -735,14 +756,187 @@ async function viewStudents(host) {
   if (fDept) filterFields.unshift(h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), fDept]));
 
   host.appendChild(h('div', { class: 'card' }, [
-    h('div', { class: 'section-title' }, [h('h2', { text: 'სტუდენტები' }), addBtn]),
+    h('div', { class: 'section-title' }, [h('h2', { text: 'სტუდენტები' }), h('div', { class: 'row' }, [addBtn, importBtn].filter(Boolean))]),
     h('div', { class: 'body' }, [
       h('div', { class: 'filters' }, filterFields),
       h('div', { class: 'row', style: 'margin-top:12px' }, [runBtn, clearBtn]),
     ]),
   ]));
   host.appendChild(listHost);
+  if (state.me.isAdmin) {
+    const groupsHost = h('div', { id: 'groups-list' });
+    host.appendChild(groupsHost);
+    renderStudentGroups(groupsHost, host);
+  }
   run();
+}
+
+async function renderStudentGroups(groupsHost, host) {
+  clear(groupsHost);
+  groupsHost.appendChild(h('div', { class: 'loading-overlay' }, [h('span', { class: 'spinner' }), ' ჯგუფები იტვირთება…']));
+  let groups = [];
+  try { groups = await api.listStudentGroups(); }
+  catch (e) { console.error(e); clear(groupsHost); groupsHost.appendChild(h('div', { class: 'empty-note', text: 'ჯგუფების ჩატვირთვა ვერ მოხერხდა.' })); return; }
+  clear(groupsHost);
+  const rows = groups.map((g) => h('tr', {}, [
+    h('td', { text: g.name || `ჯგუფი ${g.group || '—'}` }),
+    h('td', { text: g.departmentId ? deptName(g.departmentId) : '—' }),
+    h('td', { text: [g.academicYear, g.semester && (g.semester + ' სემ.'), g.course && (g.course + ' კურსი'), g.group && ('ჯგ. ' + g.group)].filter(Boolean).join(' · ') || '—' }),
+    h('td', { class: 'num', text: String(g.studentCount || 0) }),
+    h('td', { class: 'num' }, [h('span', { class: `pill ${g.archived ? 'badge-off' : 'badge-ok'}`, text: g.archived ? 'დაარქივებული' : 'აქტიური' })]),
+    h('td', { class: 'num' }, [h('div', { class: 'btn-group' }, [
+      h('button', { class: 'sm ' + (g.archived ? 'secondary' : 'warn'), text: g.archived ? 'აღდგენა' : 'დაარქივება', onClick: async () => {
+        try { await api.setStudentGroupArchived(g.id, !g.archived); toast('ჯგუფი განახლდა.', 'success'); viewStudents(host); }
+        catch (e) { toast(e.message || 'ჯგუფი ვერ განახლდა.', 'error'); }
+      } }),
+      h('button', { class: 'sm bad', text: 'წაშლა', onClick: async () => {
+        const ok = await confirmDialog(`წავშალო ჯგუფი „${g.name || g.group || '—'}“ და ამ ჯგუფის სტუდენტები?`);
+        if (!ok) return;
+        try { await api.deleteStudentGroup(g.id); toast('ჯგუფი წაიშალა.', 'success'); viewStudents(host); }
+        catch (e) { toast(e.message || 'ჯგუფი ვერ წაიშალა.', 'error'); }
+      } }),
+    ])]),
+  ]));
+  groupsHost.appendChild(h('div', { class: 'card' }, [
+    h('div', { class: 'section-title' }, [h('h2', { text: `ჯგუფები (${groups.length})` }), h('small', { class: 'muted', text: 'ატვირთვა, დაარქივება და წაშლა მხოლოდ ადმინისთვის' })]),
+    h('div', { class: 'body table-scroll' }, [
+      groups.length
+        ? h('table', {}, [h('thead', {}, [h('tr', {}, ['ჯგუფი', 'დეპარტამენტი', 'კონტექსტი', 'სტუდენტები', 'სტატუსი', 'მოქმედება'].map((t, i) => h('th', { class: i >= 3 ? 'num' : '', text: t })))]), h('tbody', {}, rows)])
+        : h('div', { class: 'empty-note', text: 'ჯგუფი ჯერ არ დამატებულა.' }),
+    ]),
+  ]));
+}
+
+function normalizePhone(s) {
+  return String(s || '').replace(/[^\d+]/g, '');
+}
+function cleanPersonName(s) {
+  return String(s || '').replace(/\s+/g, ' ').trim();
+}
+function parseStudentPdfText(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const header = lines.join(' ');
+  const course = (header.match(/კურსი:\s*([^\s]+)/) || [])[1] || '';
+  const semester = (header.match(/სემესტრი:\s*([^\s]+)/) || [])[1] || '';
+  const group = (header.match(/ჯგუფი:\s*([^\s]+)/) || [])[1] || '';
+  const specialty = (header.match(/სპეციალობა:\s*([^;]+?)(?:\s+კურსი:|$)/) || [])[1]?.trim() || '';
+  const students = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^(\d+)\s+(.+)$/);
+    if (!m) continue;
+    const raw = m[2].replace(/;.*$/, '').trim();
+    const eng = raw.match(/[A-Za-z][A-Za-z' -]+$/)?.[0]?.trim() || '';
+    const ge = cleanPersonName(eng ? raw.slice(0, raw.length - eng.length) : raw);
+    const parts = ge.split(' ');
+    const lastName = parts.shift() || '';
+    const firstName = parts.join(' ');
+    const next = [lines[i - 1], lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
+    const phone = normalizePhone((next.match(/;?\s*(\+?\d[\d\s-]{6,}\d)/) || [])[1] || '');
+    const email = (next.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    if (firstName && lastName) students.push({ firstName, lastName, englishName: eng || null, phone, email });
+  }
+  return { course, semester, group, specialty, students };
+}
+async function extractPdfText(file) {
+  const data = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => item.str).join('\n'));
+  }
+  return pages.join('\n');
+}
+function openGroupImport(host) {
+  if (!state.me.isAdmin) { toast('ჯგუფის ატვირთვა მხოლოდ ადმინს შეუძლია.', 'error'); return; }
+  const deptSel = selectEl('gi-dept', deptOptions(false), state.me.departmentId || '');
+  const yearSel = selectEl('gi-year', academicYearOptions(new Date().getFullYear(), 12), '');
+  const nameInput = h('input', { type: 'text', placeholder: 'ჯგუფის დასახელება (სურვილისამებრ)' });
+  const shech = selectEl('gi-shech', [{ value: 'no', label: 'არა' }, { value: 'yes', label: 'დიახ (შეჭრილია)' }], 'no');
+  const fileInput = h('input', { type: 'file', accept: 'application/pdf' });
+  const metaHost = h('div', { class: 'empty-note', text: 'აირჩიეთ PDF ფაილი. მონაცემები ჯერ არ შეინახება.' });
+  const previewHost = h('div', {});
+  let parsed = null;
+
+  async function readFile() {
+    const file = fileInput.files && fileInput.files[0];
+    parsed = null;
+    clear(previewHost);
+    if (!file) { metaHost.textContent = 'აირჩიეთ PDF ფაილი.'; return; }
+    metaHost.textContent = 'PDF იკითხება…';
+    try {
+      parsed = parseStudentPdfText(await extractPdfText(file));
+      if (!nameInput.value.trim() && parsed.group) nameInput.value = `ჯგუფი ${parsed.group}`;
+      metaHost.textContent = `ამოიცნო: კურსი ${parsed.course || '—'}, სემესტრი ${parsed.semester || '—'}, ჯგუფი ${parsed.group || '—'}, სტუდენტი ${parsed.students.length}`;
+      const rows = parsed.students.slice(0, 20).map((s, i) => h('tr', {}, [
+        h('td', { class: 'num', text: String(i + 1) }),
+        h('td', { text: `${s.lastName} ${s.firstName}` }),
+        h('td', { text: s.englishName || '—' }),
+        h('td', { text: s.phone || '—' }),
+        h('td', { text: s.email || '—' }),
+      ]));
+      previewHost.appendChild(h('div', { class: 'table-scroll', style: 'margin-top:12px' }, [h('table', {}, [
+        h('thead', {}, [h('tr', {}, ['№', 'სახელი გვარი', 'ENG', 'ტელეფონი', 'ელ.ფოსტა'].map((t, i) => h('th', { class: i === 0 ? 'num' : '', text: t })))]),
+        h('tbody', {}, rows),
+      ])]));
+      if (parsed.students.length > 20) previewHost.appendChild(h('div', { class: 'muted', style: 'margin-top:8px', text: `ნაჩვენებია პირველი 20 სტუდენტი ${parsed.students.length}-დან.` }));
+    } catch (e) {
+      console.error(e);
+      metaHost.textContent = 'PDF-ის წაკითხვა ვერ მოხერხდა.';
+      toast(e.message || 'PDF-ის წაკითხვა ვერ მოხერხდა.', 'error');
+    }
+  }
+  fileInput.addEventListener('change', readFile);
+
+  const saveBtn = h('button', { text: 'ჯგუფის დამატება' });
+  const cancelBtn = h('button', { class: 'ghost', text: 'გაუქმება' });
+  const modal = openModal({
+    title: 'ჯგუფის დამატება PDF-ით',
+    content: h('div', { class: 'stack' }, [
+      h('div', { class: 'grid grid-2' }, [
+        h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი *' }), deptSel]),
+        h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი *' }), yearSel]),
+        h('div', { class: 'field' }, [h('label', { text: 'ჯგუფის სახელი' }), nameInput]),
+        h('div', { class: 'field' }, [h('label', { text: 'შეჭრილია თუ არა' }), shech]),
+        h('div', { class: 'field' }, [h('label', { text: 'PDF ფაილი *' }), fileInput]),
+      ]),
+      metaHost,
+      previewHost,
+    ]),
+    footer: [cancelBtn, saveBtn],
+    width: '980px',
+  });
+  cancelBtn.addEventListener('click', () => modal.close());
+  saveBtn.addEventListener('click', guardButton(saveBtn, async () => {
+    if (!deptSel.value || !yearSel.value) { toast('აირჩიეთ დეპარტამენტი და სასწავლო წელი.', 'error'); return; }
+    if (!parsed || !parsed.students.length) { toast('PDF-დან სტუდენტები ვერ ამოიცნო.', 'error'); return; }
+    const groupName = nameInput.value.trim() || `ჯგუფი ${parsed.group || ''}`.trim();
+    const studentRows = parsed.students.map((s) => ({
+      ...s,
+      departmentId: deptSel.value,
+      group: parsed.group || groupName,
+      semester: parsed.semester,
+      course: parsed.course,
+      academicYear: yearSel.value,
+      isShechrili: shech.value === 'yes',
+    }));
+    try {
+      await api.createStudentGroupWithStudents({
+        name: groupName,
+        departmentId: deptSel.value,
+        academicYear: yearSel.value,
+        semester: parsed.semester || null,
+        course: parsed.course || null,
+        group: parsed.group || groupName,
+        specialty: parsed.specialty || null,
+        isShechrili: shech.value === 'yes',
+      }, studentRows, state.me.uid);
+      toast('ჯგუფი და სტუდენტები დაემატა.', 'success');
+      modal.close();
+      viewStudents(host);
+    } catch (e) { toast(e.message || 'ჯგუფი ვერ დაემატა.', 'error'); }
+  }));
 }
 
 function renderStudentTable(listHost, students, host) {
@@ -785,7 +979,7 @@ function openStudentForm(host, existing = null) {
   const group = h('input', { type: 'text', value: existing?.group || '' });
   const semester = h('input', { type: 'text', value: existing?.semester || '' });
   const course = h('input', { type: 'text', value: existing?.course || '' });
-  const year = h('input', { type: 'text', value: existing?.academicYear || '', placeholder: 'მაგ., 2025-2026' });
+  const year = selectEl('st-year', academicYearOptions(new Date().getFullYear(), 12), existing?.academicYear || '');
   const shech = selectEl('st-shech', [{ value: '', label: 'აირჩიეთ' }, { value: 'yes', label: 'დიახ' }, { value: 'no', label: 'არა' }],
     existing ? (existing.isShechrili ? 'yes' : 'no') : '');
   const canChooseDept = state.me.isAdmin;
@@ -906,7 +1100,7 @@ async function viewUceem(host) {
     h('td', { text: (c.targets || []).map((t) => `${t.name} (${E.roleLabel(t.role)})`).join(', ') || '—' }),
     h('td', { class: 'num' }, [h('span', { class: `pill ${c.active ? 'badge-ok' : 'badge-off'}`, text: c.active ? 'აქტიური' : 'დახურული' })]),
     h('td', { class: 'num' }, [h('div', { class: 'btn-group' }, [
-      h('button', { class: 'sm secondary', text: 'UCEEM ლინკის კოპირება', onClick: () => copyCampaignLink(c.id) }),
+      h('button', { class: 'sm secondary', text: 'UCEEM ლინკის კოპირება', onClick: () => copyCampaignLink(c) }),
       h('button', {
         class: 'sm ' + (c.active ? 'bad' : 'secondary'), text: c.active ? 'დახურვა' : 'გახსნა',
         onClick: async () => { await api.setCampaignActive(c.id, !c.active); toast('განახლდა.', 'success'); viewUceem(host); },
@@ -923,13 +1117,19 @@ async function viewUceem(host) {
   ]));
 }
 
-function campaignUrl(id) {
+function campaignUrl(campaign) {
   const base = location.href.replace(/index\.html.*$/, '').replace(/#.*$/, '').replace(/\?.*$/, '');
   const clean = base.endsWith('/') ? base : base + '/';
-  return `${clean}uceem.html?c=${encodeURIComponent(id)}`;
+  const id = typeof campaign === 'string' ? campaign : campaign.id;
+  const publicKey = typeof campaign === 'string' ? '' : (campaign.publicKey || '');
+  return `${clean}uceem.html?c=${encodeURIComponent(id)}${publicKey ? `&k=${encodeURIComponent(publicKey)}` : ''}`;
 }
-async function copyCampaignLink(id) {
-  const url = campaignUrl(id);
+async function copyCampaignLink(campaign) {
+  if (!campaign.publicKey) {
+    toast('ამ ძველ კამპანიას დაცული ბმულის key არ აქვს. შექმენით ახალი კამპანია.', 'error');
+    return;
+  }
+  const url = campaignUrl(campaign);
   try { await navigator.clipboard.writeText(url); toast('ბმული დაკოპირდა.', 'success'); }
   catch (_) { window.prompt('დააკოპირეთ ბმული:', url); }
 }
@@ -938,7 +1138,7 @@ async function copyUceemLinkForContext(departmentId) {
     const campaigns = await api.listCampaigns();
     const match = campaigns.find((c) => c.active && (!departmentId || c.departmentId === departmentId));
     if (!match) { toast('ამ დეპარტამენტისთვის აქტიური კამპანია ვერ მოიძებნა. შექმენით UCEEM კამპანიების გვერდზე.', 'error'); return; }
-    await copyCampaignLink(match.id);
+    await copyCampaignLink(match);
   } catch (e) { toast(e.message || 'ვერ მოხერხდა', 'error'); }
 }
 
