@@ -197,6 +197,22 @@ export async function createStudentGroupWithStudents(groupData, students, uid) {
   await batch.commit();
   return groupRef.id;
 }
+export async function createStudentsBulk(students, uid) {
+  const batch = writeBatch(db);
+  const now = serverTimestamp();
+  students.forEach((student) => {
+    const studentRef = doc(collection(db, 'students'));
+    batch.set(studentRef, {
+      ...student,
+      groupId: student.groupId || null,
+      groupArchived: false,
+      createdBy: uid,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  await batch.commit();
+}
 export async function setStudentGroupArchived(groupId, archived) {
   const batch = writeBatch(db);
   batch.update(doc(db, 'studentGroups', groupId), { archived: !!archived, updatedAt: serverTimestamp() });

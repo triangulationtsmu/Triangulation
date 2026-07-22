@@ -137,6 +137,121 @@ td.num,th.num{text-align:center}
 
 canvas{display:block;width:100%;max-width:900px;height:auto;margin:0 auto;background:#fff;border-radius:12px}
 
+/* ---- WBA / MSF report style, aligned with the original standalone templates ---- */
+.report-shell{display:flex;flex-direction:column;gap:18px}
+.report-head{
+  padding:22px 24px;
+  background:linear-gradient(135deg,#ecfeff 0%,#eff6ff 100%);
+  border:1px solid var(--line);
+  border-radius:18px;
+}
+.report-head h1,.page-title h1{font-size:30px;font-weight:800;color:#0f172a;margin:0 0 6px}
+.report-head .sub,.page-title p{color:var(--muted);margin:0}
+.page-title{text-align:center;margin-bottom:2px}
+.report-card,.resume-student-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  padding:20px;
+}
+.report-card>.section-title,.report-card>.section-title-row{
+  margin:-20px -20px 18px;
+  border-radius:18px 18px 0 0;
+}
+.section-title-row{
+  padding:16px 20px;
+  border-bottom:1px solid var(--line);
+  background:#fbfdff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.radar-meta,.resume-student-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.meta-box,.resume-item{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  background:#f8fbff;
+}
+.meta-box .k,.resume-item strong{
+  color:var(--muted);
+  font-size:13px;
+  font-weight:800;
+}
+.meta-box .v,.resume-item span{
+  display:block;
+  font-size:18px;
+  font-weight:800;
+  margin-top:2px;
+  word-break:break-word;
+}
+.table-wrap{
+  width:100%;
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:16px;
+}
+.table-wrap table{min-width:900px}
+.table-wrap thead th{background:#eef4ff;color:#0f172a}
+.left{text-align:left}
+.canvas-card,.chart-box{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:18px;
+  background:#fff;
+}
+.chart-canvas-wrap{width:100%}
+.legend-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.legend-item{
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#f8fbff;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.legend-item strong{font-size:18px;color:#0f766e}
+.resume-header{
+  text-align:center;
+  padding:18px;
+  border-radius:16px;
+  background:linear-gradient(135deg,#ecfeff 0%,#eff6ff 100%);
+  border:1px solid var(--line);
+  margin-bottom:16px;
+}
+.resume-header h2{font-size:24px;margin:0 0 4px}
+.resume-header h3{font-size:18px;color:var(--muted);margin:0}
+.descriptor-list{display:flex;flex-direction:column;gap:12px}
+.descriptor-card{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#fff;
+  padding:14px;
+}
+.descriptor-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+.descriptor-head h4{margin:0;font-size:16px}
+
 /* ---- filters bar ---- */
 .filters{display:grid;gap:10px;grid-template-columns:repeat(4,minmax(0,1fr))}
 .filters .field{min-width:0}
@@ -144,9 +259,11 @@ canvas{display:block;width:100%;max-width:900px;height:auto;margin:0 auto;backgr
 @media (max-width:1100px){
   .grid-4,.kpi,.filters{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .radar-meta,.resume-student-grid,.legend-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:720px){
   .grid-2,.grid-3,.grid-4,.kpi,.filters{grid-template-columns:1fr}
+  .radar-meta,.resume-student-grid,.legend-grid{grid-template-columns:1fr}
   .rating-row{grid-template-columns:1fr 100px}
   .topbar .who{width:100%;margin-left:0}
 }

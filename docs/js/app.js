@@ -450,12 +450,12 @@ async function openWbaSummary(student) {
 
   const rows = entries.map((r, i) => h('tr', {}, [
     h('td', { class: 'num', text: String(i + 1) }),
-    h('td', { text: r.caseName }),
+    h('td', { class: 'left', text: r.caseName }),
     h('td', { class: 'num', text: r.mini > 0 ? E.formatNum(r.mini) : '0.00' }),
     h('td', { class: 'num', text: r.cbd > 0 ? E.formatNum(r.cbd) : '0.00' }),
     h('td', { class: 'num', text: r.dops > 0 ? E.formatNum(r.dops) : '0.00' }),
   ]));
-  const table = h('div', { class: 'table-scroll' }, [h('table', {}, [
+  const table = h('div', { class: 'table-wrap' }, [h('table', {}, [
     h('thead', {}, [h('tr', {}, [
       h('th', { class: 'num', text: '№' }), h('th', { text: 'შემთხვევა / ქეისი' }),
       h('th', { class: 'num', text: 'Mini-CEX' }), h('th', { class: 'num', text: 'CBD' }), h('th', { class: 'num', text: 'DOPS' }),
@@ -469,19 +469,32 @@ async function openWbaSummary(student) {
     ])]),
   ])]);
 
-  const kpi = h('div', { class: 'kpi', style: 'margin-top:14px' }, [
-    kbox('ჩანაწერების რაოდენობა', String(entries.length)),
-    kbox('Mini-CEX საშუალო', E.formatNum(avg.mini)),
-    kbox('CBD საშუალო', E.formatNum(avg.cbd)),
-    kbox('DOPS საშუალო', E.formatNum(avg.dops)),
-  ]);
   const canvas = h('canvas', { width: '900', height: '700' });
   const printBtn = h('button', { class: 'warn no-print', text: 'ბეჭდვა', onClick: () => window.print() });
 
-  body.appendChild(h('div', { class: 'stack' }, [
-    metaGrid(student, { 'საშუალო ჯამური ქულა': E.formatNum(avg.overall) }),
-    table, kpi,
-    h('div', { class: 'card', style: 'margin:0' }, [h('div', { class: 'body' }, [canvas])]),
+  body.appendChild(h('div', { class: 'report-shell wba-report' }, [
+    h('div', { class: 'report-head' }, [
+      h('h1', { text: 'WBA შეფასების ინსტრუმენტი' }),
+      h('div', { class: 'sub', text: 'Mini-CEX, CBD, DOPS მონაცემების შეჯამება და საშუალო ქულებით რადარული დიაგრამა.' }),
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'section-title' }, [h('h2', { text: 'სტუდენტის მონაცემები' })]),
+      h('div', { class: 'radar-meta' }, reportMetaBoxes(student, [
+        ['ჩანაწერების რაოდენობა', String(entries.length)],
+        ['საშუალო ჯამური ქულა', E.formatNum(avg.overall)],
+        ['Mini-CEX საშუალო', E.formatNum(avg.mini)],
+        ['CBD საშუალო', E.formatNum(avg.cbd)],
+        ['DOPS საშუალო', E.formatNum(avg.dops)],
+      ])),
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'section-title' }, [h('h2', { text: 'WBA Summary' })]),
+      table,
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'section-title' }, [h('h2', { text: 'რედარული დიაგრამა' })]),
+      h('div', { class: 'canvas-card' }, [canvas]),
+    ]),
     h('div', { class: 'row no-print' }, [printBtn]),
   ]));
   E.drawWbaRadar(canvas, avg);
@@ -514,31 +527,47 @@ async function openMsfResume(student) {
   ]));
   const footCells = [h('td', { colspan: '2', text: 'საშუალო' })]
     .concat(E.MSF_DOMAINS.map((d) => h('td', { class: 'num', text: E.msfFormatNumber(averages[d.key]) })));
-  const table = h('div', { class: 'table-scroll' }, [h('table', {}, [
+  const table = h('div', { class: 'table-wrap' }, [h('table', {}, [
     h('thead', {}, [h('tr', {}, headCells)]),
     h('tbody', {}, rows),
     h('tfoot', {}, [h('tr', {}, footCells)]),
   ])]);
 
-  const canvas = h('canvas', { width: '760', height: '620' });
-  const descriptors = h('div', { class: 'stack' }, E.MSF_DOMAINS.map((d) => h('div', { class: 'card', style: 'margin:0' }, [
-    h('div', { class: 'body' }, [
-      h('div', { class: 'row' }, [h('h4', { class: 'grow', text: d.label }), h('span', { class: 'score-pill', text: `საშუალო ქულა: ${E.msfFormatNumber(averages[d.key])}` })]),
-      h('div', { style: 'margin-top:6px', text: E.getDescriptorText(d.key, averages[d.key]) }),
+  const canvas = h('canvas', { width: '900', height: '700' });
+  const descriptors = h('div', { class: 'descriptor-list' }, E.MSF_DOMAINS.map((d) => h('div', { class: 'descriptor-card' }, [
+    h('div', { class: 'descriptor-head' }, [
+      h('h4', { text: d.label }),
+      h('span', { class: 'score-pill', text: `საშუალო ქულა: ${E.msfFormatNumber(averages[d.key])}` }),
     ]),
+      h('div', { style: 'margin-top:6px', text: E.getDescriptorText(d.key, averages[d.key]) }),
+  ])));
+  const legend = h('div', { class: 'legend-grid' }, E.MSF_DOMAINS.map((d) => h('div', { class: 'legend-item' }, [
+    h('span', { text: d.label }),
+    h('strong', { text: E.msfFormatNumber(averages[d.key]) }),
   ])));
 
   const printBtn = h('button', { class: 'warn no-print', text: 'ბეჭდვა', onClick: () => window.print() });
-  body.appendChild(h('div', { class: 'stack' }, [
-    metaGrid(student, { 'ჩანაწერების რაოდენობა': String(entries.length) }),
-    table,
-    h('div', { class: 'card', style: 'margin:0' }, [
-      h('div', { class: 'section-title' }, [h('h3', { text: 'დომენების საშუალო ქულების რადარული დიაგრამა' })]),
-      h('div', { class: 'body' }, [canvas]),
+  body.appendChild(h('div', { class: 'report-shell msf-report' }, [
+    h('div', { class: 'page-title' }, [
+      h('h1', { text: 'MSF / 360° უკუკავშირის შეფასება' }),
+      h('p', { text: 'რეზიუმე, საშუალო დომენური ქულები და რადარული დიაგრამა.' }),
     ]),
-    h('div', { class: 'card', style: 'margin:0' }, [
-      h('div', { class: 'section-title' }, [h('h3', { text: 'ავტომატური რეზიუმე — დახასიათება' })]),
-      h('div', { class: 'body' }, [descriptors]),
+    h('div', { class: 'resume-student-card' }, [
+      h('div', { class: 'resume-student-grid' }, [
+        ...reportMetaBoxes(student, [['ჩანაწერები', String(entries.length)]]),
+      ]),
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'section-title-row' }, [h('h2', { text: 'შემფასებლების ცხრილი' }), h('span', { class: 'badge', text: `ჩანაწერები: ${entries.length}` })]),
+      table,
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'section-title-row' }, [h('h2', { text: 'დომენების საშუალო ქულების რადარული დიაგრამა' })]),
+      h('div', { class: 'chart-box' }, [h('div', { class: 'chart-canvas-wrap' }, [canvas]), legend]),
+    ]),
+    h('div', { class: 'report-card' }, [
+      h('div', { class: 'resume-header' }, [h('h2', { text: 'ავტომატური რეზიუმე' }), h('h3', { text: `${student.lastName} ${student.firstName}` })]),
+      descriptors,
     ]),
     h('div', { class: 'row no-print' }, [printBtn]),
   ]));
@@ -546,6 +575,20 @@ async function openMsfResume(student) {
 }
 
 function kbox(k, v) { return h('div', { class: 'box' }, [h('div', { class: 'k', text: k }), h('div', { class: 'v', text: v })]); }
+function reportMetaBoxes(student, extra = []) {
+  const base = [
+    ['სტუდენტი', `${student.lastName} ${student.firstName}`],
+    ['ჯგუფი', student.group || '—'],
+    ['სემესტრი', student.semester || '—'],
+    ['კურსი', student.course || '—'],
+    ['სასწავლო წელი', student.academicYear || '—'],
+    ['დეპარტამენტი', student.departmentId ? deptName(student.departmentId) : '—'],
+  ];
+  return base.concat(extra).map(([k, v]) => h('div', { class: 'meta-box resume-item' }, [
+    h('div', { class: 'k', text: k }),
+    h('div', { class: 'v', text: v }),
+  ]));
+}
 function metaGrid(student, extra = {}) {
   const items = {
     'სტუდენტი': `${student.lastName} ${student.firstName}`,
@@ -963,7 +1006,22 @@ function openGroupImport(host) {
       toast('ჯგუფი და სტუდენტები დაემატა.', 'success');
       modal.close();
       viewStudents(host);
-    } catch (e) { toast(e.message || 'ჯგუფი ვერ დაემატა.', 'error'); }
+    } catch (e) {
+      const msg = e && e.message ? e.message : '';
+      if (/permission|insufficient/i.test(msg)) {
+        try {
+          await api.createStudentsBulk(studentRows, state.me.uid);
+          toast('სტუდენტები დაემატა. ჯგუფის archive/delete-სთვის Firestore rules უნდა გამოქვეყნდეს.', 'success', 7000);
+          modal.close();
+          viewStudents(host);
+          return;
+        } catch (bulkErr) {
+          toast(bulkErr.message || 'სტუდენტები ვერ დაემატა.', 'error');
+          return;
+        }
+      }
+      toast(msg || 'ჯგუფი ვერ დაემატა.', 'error');
+    }
   }));
 }
 
