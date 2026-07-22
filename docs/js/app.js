@@ -317,8 +317,8 @@ function openStandaloneTool(fileName) {
 
 function roleForTemplate(role) {
   const map = {
-    curator: 'კურატორი ექიმი/რეზიდენტი',
-    doctor: 'კურატორი ექიმი/რეზიდენტი',
+    curator: 'კურატორი',
+    doctor: 'ექიმი',
     department_head: 'დეპარტამენტის ხელმძღვანელი',
     nurse: 'ექთანი',
     lecturer: 'ლექტორი',
@@ -389,14 +389,31 @@ function templateBridgeScript(type, student, token) {
    el.value=value||''; el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true}));
    if(lock) el.disabled=true;
  }
+ function ensureRoleSelect(){
+   let role=document.getElementById('role');
+   if(role) return role;
+   const anchor=document.getElementById('assessor') || document.getElementById('rater');
+   if(!anchor || !anchor.parentElement) return null;
+   const label=document.createElement('label');
+   label.textContent='შემფასებლის როლი';
+   role=document.createElement('select');
+   role.id='role';
+   ['','კურატორი','ექიმი','ექთანი','დეპარტამენტის ხელმძღვანელი','ლექტორი','სხვა შესაბამისი შემფასებელი'].forEach(text=>{
+     const opt=document.createElement('option'); opt.value=text; opt.textContent=text || 'აირჩიეთ'; role.appendChild(opt);
+   });
+   anchor.insertAdjacentElement('afterend', role);
+   anchor.insertAdjacentElement('afterend', label);
+   return role;
+ }
  function init(){
+   ensureRoleSelect();
    setValue('trainee', META.studentName, true);
    setValue('studentName', META.studentName, true);
-   setValue('assessor', META.evaluatorName, true);
-   setValue('rater', META.evaluatorName, true);
+   setValue('assessor', META.evaluatorName, false);
+   setValue('rater', META.evaluatorName, false);
    setValue('setting', META.department, true);
    setValue('dept', META.department, true);
-   setValue('role', META.evaluatorRole, true);
+   setValue('role', META.evaluatorRole, false);
    setValue('group', META.group, true);
    setValue('semester', META.semester, true);
    setValue('curation', META.curation, true);
@@ -406,12 +423,9 @@ function templateBridgeScript(type, student, token) {
    setValue('curationEnd', META.curationEnd, true);
    setValue('rotationEnd', META.curationEnd, true);
    setValue('date', META.date, false);
-   const actions=document.querySelector('.actions') || document.body;
-   const btn=document.createElement('button');
-   btn.textContent='Firestore-ში შენახვა';
-   btn.style.background='#0f766e';
-   btn.onclick=function(ev){ ev.preventDefault(); saveFirestore(); };
-   actions.appendChild(btn);
+   window.saveData=saveFirestore;
+   const saveBtn=[...document.querySelectorAll('button')].find(b=>/შენახ/.test(b.textContent));
+   if(saveBtn) saveBtn.textContent='შენახვა';
    if(typeof calc==='function') calc();
  }
  function collect(){
@@ -429,7 +443,9 @@ function templateBridgeScript(type, student, token) {
      improve: values.improve || '',
      plan: values.plan || '',
      followup: values.followup || '',
-     priorities: values.priorities || ''
+     priorities: values.priorities || '',
+     evaluatorName: values.assessor || values.rater || values.evaluator || '',
+     evaluatorRole: values.role || ''
    }};
  }
  function saveFirestore(){
@@ -447,6 +463,12 @@ async function saveTemplateEvaluation(type, student, payload) {
   if (Number(scores.completed || 0) < form.domains.length) {
     throw new Error('შეავსეთ ყველა დომენი (1-8).');
   }
+  const summary = payload.summary || {};
+  const evaluatorName = String(summary.evaluatorName || '').trim() || `${state.me.firstName} ${state.me.lastName}`;
+  const evaluatorParts = evaluatorName.split(/\s+/).filter(Boolean);
+  const evaluatorFirstName = evaluatorParts.slice(0, -1).join(' ') || evaluatorName;
+  const evaluatorLastName = evaluatorParts.length > 1 ? evaluatorParts.at(-1) : '';
+  const evaluatorRole = String(summary.evaluatorRole || '').trim() || roleForTemplate(state.me.role);
   await api.createEvaluation({
     studentId: student.id,
     type,
@@ -456,12 +478,12 @@ async function saveTemplateEvaluation(type, student, payload) {
     course: student.course || null,
     academicYear: student.academicYear || null,
     evaluatorUid: state.me.uid,
-    evaluatorFirstName: state.me.firstName,
-    evaluatorLastName: state.me.lastName,
-    evaluatorRole: state.me.role,
+    evaluatorFirstName,
+    evaluatorLastName,
+    evaluatorRole,
     answers: payload.answers || {},
     scores,
-    summary: payload.summary || {},
+    summary,
     formValues: payload.values || {},
   });
 }
@@ -617,7 +639,10 @@ async function openWbaSummary(student) {
         if(typeof showRadar==='function') showRadar();
       }
       window.addEventListener('DOMContentLoaded', boot);
+      window.addEventListener('load', boot);
       setTimeout(boot, 80);
+      setTimeout(boot, 250);
+      setTimeout(boot, 700);
     })();
   <\/script>`);
 }
@@ -659,7 +684,10 @@ async function openMsfResume(student) {
         if(entries.length && typeof generateResume==='function') generateResume();
       }
       window.addEventListener('DOMContentLoaded', boot);
+      window.addEventListener('load', boot);
       setTimeout(boot, 80);
+      setTimeout(boot, 250);
+      setTimeout(boot, 700);
     })();
   <\/script>`);
 }

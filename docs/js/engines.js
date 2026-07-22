@@ -266,18 +266,18 @@ export const MSF_DOMAINS = [
 // Map an MSF evaluation (template keys) to the resume domain keys.
 export function msfEntryFromEvaluation(e) {
   const a = e.answers || {};
+  const evaluatorName = `${e.evaluatorFirstName || ''} ${e.evaluatorLastName || ''}`.trim();
+  const evaluatorRole = e.evaluatorRole || '';
   return {
     id: e.id,
-    evaluator: e.evaluatorRole
-      ? `${e.evaluatorFirstName || ''} ${e.evaluatorLastName || ''}`.trim() + (e.evaluatorRole ? ` (${roleLabel(e.evaluatorRole)})` : '')
-      : `${e.evaluatorFirstName || ''} ${e.evaluatorLastName || ''}`.trim(),
+    evaluator: evaluatorName ? `${evaluatorName}${evaluatorRole ? ` (${evaluatorRole})` : ''}` : (evaluatorRole || '—'),
     professionalism: Number(a.professionalism || 0),
-    patientCommunication: Number(a.communication_with_patients || 0),
-    teamCommunication: Number(a.communication_with_team || 0),
+    patientCommunication: Number(a.patientCommunication || a.communication_with_patients || 0),
+    teamCommunication: Number(a.teamCommunication || a.communication_with_team || 0),
     teamwork: Number(a.teamwork || 0),
     organization: Number(a.organization || 0),
-    clinicalResponsibility: Number(a.clinical_responsibility || 0),
-    leadership: Number(a.leadership_where_appropriate || 0),
+    clinicalResponsibility: Number(a.clinicalResponsibility || a.clinical_responsibility || 0),
+    leadership: Number(a.leadership || a.leadership_where_appropriate || 0),
   };
 }
 
