@@ -53,6 +53,12 @@ export function openModal({ title, content, footer = [], width, onClose }) {
 
 export function confirmDialog(message, { okText = 'დადასტურება', danger = true } = {}) {
   return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
     const okBtn = h('button', { class: danger ? 'bad' : '', text: okText });
     const cancelBtn = h('button', { class: 'ghost', text: 'გაუქმება' });
     const m = openModal({
@@ -60,10 +66,10 @@ export function confirmDialog(message, { okText = 'დადასტურე�
       content: h('div', { text: message }),
       footer: [cancelBtn, okBtn],
       width: '460px',
-      onClose: () => resolve(false),
+      onClose: () => done(false),
     });
-    okBtn.addEventListener('click', () => { m.close(); resolve(true); });
-    cancelBtn.addEventListener('click', () => { m.close(); resolve(false); });
+    okBtn.addEventListener('click', () => { done(true); m.close(); });
+    cancelBtn.addEventListener('click', () => { done(false); m.close(); });
   });
 }
 
