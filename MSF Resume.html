@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSF / 360° უკუკავშირის შეფასება</title>
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --line:#dbe4f0;
+      --primary:#2563eb;
+      --primary-dark:#1d4ed8;
+      --success:#16a34a;
+      --danger:#dc2626;
+      --warning:#d97706;
+      --soft:#eef4ff;
+      --shadow:0 10px 30px rgba(15,23,42,0.08);
+      --radius:18px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Calibri, Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .container{
+      width:min(1380px, 96%);
+      margin:24px auto 40px;
+    }
+
+    .page-title{
+      text-align:center;
+      margin-bottom:18px;
+    }
+
+    .page-title h1{
+      margin:0 0 6px;
+      font-size:30px;
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+
+    .page-title p{
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:20px;
+      margin-bottom:18px;
+    }
+
+    .card h2{
+      margin:0 0 16px;
+      font-size:22px;
+      line-height:1.25;
+    }
+
+    .card h3{
+      margin:0 0 14px;
+      font-size:18px;
+    }
+
+    .grid{
+      display:grid;
+      gap:14px;
+    }
+
+    .grid-2{grid-template-columns:repeat(2, minmax(0,1fr));}
+    .grid-3{grid-template-columns:repeat(3, minmax(0,1fr));}
+    .grid-4{grid-template-columns:repeat(4, minmax(0,1fr));}
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:7px;
+    }
+
+    .field label{
+      font-weight:700;
+      font-size:14px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      border:1px solid #c9d5e5;
+      border-radius:12px;
+      padding:12px 13px;
+      font-size:15px;
+      background:#fff;
+      outline:none;
+      transition:.2s ease;
+    }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 3px rgba(37,99,235,0.12);
+    }
+
+    .hint{
+      color:var(--muted);
+      font-size:13px;
+      margin-top:4px;
+    }
+
+    .button-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    button{
+      border:none;
+      border-radius:12px;
+      padding:12px 16px;
+      font-size:15px;
+      font-weight:700;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+
+    button:hover{transform:translateY(-1px)}
+    button:active{transform:translateY(0)}
+
+    .btn-primary{background:var(--primary); color:#fff;}
+    .btn-primary:hover{background:var(--primary-dark)}
+    .btn-success{background:var(--success); color:#fff;}
+    .btn-danger{background:var(--danger); color:#fff;}
+    .btn-warning{background:var(--warning); color:#fff;}
+    .btn-soft{
+      background:var(--soft);
+      color:var(--primary-dark);
+      border:1px solid #cfe0ff;
+    }
+    .btn-outline{
+      background:#fff;
+      color:var(--text);
+      border:1px solid #cfd8e5;
+    }
+
+    .status{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:12px;
+      display:none;
+      font-weight:700;
+    }
+    .status.show{display:block}
+    .status.success{background:#ecfdf3; color:#166534; border:1px solid #bbf7d0;}
+    .status.error{background:#fef2f2; color:#991b1b; border:1px solid #fecaca;}
+    .status.info{background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;}
+
+    .table-wrap{
+      width:100%;
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:16px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1180px;
+      background:#fff;
+    }
+
+    thead th{
+      background:#eef4ff;
+      color:#0f172a;
+      font-size:14px;
+      font-weight:800;
+      padding:12px 10px;
+      border-bottom:1px solid var(--line);
+      text-align:center;
+      white-space:nowrap;
+    }
+
+    tbody td, tfoot td{
+      border-bottom:1px solid #edf2f7;
+      padding:10px;
+      font-size:14px;
+      text-align:center;
+      vertical-align:middle;
+    }
+
+    tbody tr:hover{
+      background:#fafcff;
+    }
+
+    tfoot td{
+      background:#f8fbff;
+      font-weight:800;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#eef4ff;
+      color:#1e40af;
+      font-weight:700;
+      font-size:13px;
+    }
+
+    .section-title-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+
+    .chart-box{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .chart-canvas-wrap{
+      position:relative;
+      width:100%;
+      min-height:620px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+      border:1px solid #e7eef8;
+      border-radius:16px;
+      overflow:hidden;
+      padding:10px;
+    }
+
+    #radarCanvas{
+      width:min(900px, 100%);
+      height:auto;
+      display:block;
+      background:#fff;
+      border-radius:12px;
+    }
+
+    .legend-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .legend-item{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:#fbfdff;
+      font-size:14px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .legend-item strong{
+      font-weight:800;
+    }
+
+    .hidden{display:none !important;}
+
+    .resume-shell{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:24px;
+    }
+
+    .resume-header{
+      text-align:center;
+      margin-bottom:18px;
+    }
+
+    .resume-header h2{
+      margin:0;
+      font-size:28px;
+      font-weight:800;
+    }
+
+    .resume-header h3{
+      margin:8px 0 0;
+      font-size:20px;
+      font-weight:700;
+    }
+
+    .resume-student-card{
+      border:1px solid var(--line);
+      background:#f9fbff;
+      border-radius:16px;
+      padding:18px;
+      margin-bottom:18px;
+    }
+
+    .resume-student-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:12px 20px;
+    }
+
+    .resume-item{
+      display:flex;
+      gap:8px;
+      align-items:flex-start;
+      font-size:15px;
+    }
+
+    .resume-item strong{
+      min-width:96px;
+    }
+
+    .descriptor-list{
+      display:grid;
+      gap:14px;
+    }
+
+    .descriptor-card{
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:16px;
+      background:#fff;
+    }
+
+    .descriptor-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .descriptor-head h4{
+      margin:0;
+      font-size:17px;
+    }
+
+    .score-pill{
+      padding:7px 11px;
+      border-radius:999px;
+      background:#eef4ff;
+      color:#1e40af;
+      font-weight:800;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .empty-state{
+      text-align:center;
+      padding:26px;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .small-delete{
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:13px;
+      background:#fee2e2;
+      color:#991b1b;
+      border:1px solid #fecaca;
+    }
+
+    .print-note{
+      color:var(--muted);
+      font-size:13px;
+      margin-top:8px;
+    }
+
+    @media (max-width: 1100px){
+      .grid-4{grid-template-columns:repeat(2, minmax(0,1fr));}
+      .grid-3{grid-template-columns:repeat(2, minmax(0,1fr));}
+    }
+
+    @media (max-width: 760px){
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .resume-student-grid{
+        grid-template-columns:1fr;
+      }
+
+      .page-title h1{font-size:24px}
+      .card h2{font-size:20px}
+      .chart-canvas-wrap{min-height:460px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-title">
+      <h1>MSF / 360° უკუკავშირის შეფასების ფორმა</h1>
+      <p>სტუდენტის მონაცემები, მრავალწყაროიანი შეფასებები, საშუალო ქულები, რადარული დიაგრამა და ავტომატური რეზიუმე</p>
+    </div>
+
+    <div class="card">
+      <h2>1. სტუდენტის მონაცემების ქარდი</h2>
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="studentName">სტუდენტი</label>
+          <input id="studentName" type="text" placeholder="სახელი და გვარი" />
+        </div>
+        <div class="field">
+          <label for="group">ჯგუფი</label>
+          <input id="group" type="text" placeholder="მაგ.: G-12" />
+        </div>
+        <div class="field">
+          <label for="semester">სემესტრი</label>
+          <input id="semester" type="text" placeholder="მაგ.: VI" />
+        </div>
+        <div class="field">
+          <label for="curation">კურაცია</label>
+          <input id="curation" type="text" placeholder="კურაციის დასახელება" />
+        </div>
+        <div class="field">
+          <label for="curationStart">კურაციის დაწყება</label>
+          <input id="curationStart" type="date" />
+        </div>
+        <div class="field">
+          <label for="curationEnd">კურაციის დასრულება</label>
+          <input id="curationEnd" type="date" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. Multi-Source Feedback (MSF) / 360° უკუკავშირის შეფასება</h2>
+      <div class="grid grid-4">
+        <div class="field">
+          <label for="evaluator">შემფასებელი</label>
+          <select id="evaluator">
+            <option value="">აირჩიეთ</option>
+            <option>კურატორი ექიმი/რეზიდენტი</option>
+            <option>დეპარტამენტის ხელმძღვანელი</option>
+            <option>ექთანი</option>
+            <option>ექთნის თანაშემწე</option>
+            <option>ადმინისტრაციული პერსონალი</option>
+            <option>პაციენტი / ოჯახის წარმომადგენელი</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="professionalism">პროფესიონალიზმი</label>
+          <input id="professionalism" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="patientCommunication">პაციენტებთან კომუნიკაცია</label>
+          <input id="patientCommunication" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="teamCommunication">კომუნიკაცია გუნდთან</label>
+          <input id="teamCommunication" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="teamwork">მულტიდისციპლინური გუნდური მუშაობა</label>
+          <input id="teamwork" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="organization">ორგანიზებულობა</label>
+          <input id="organization" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="clinicalResponsibility">კლინიკური პასუხისმგებლობა</label>
+          <input id="clinicalResponsibility" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+
+        <div class="field">
+          <label for="leadership">ლიდერული უნარები</label>
+          <input id="leadership" type="number" min="1" max="8" step="0.1" placeholder="1-8" />
+        </div>
+      </div>
+
+      <div class="hint">ყველა დომენის შეფასება შეიყვანეთ 1-დან 8-მდე. დაშვებულია როგორც მთელი, ასევე წილადობრივი მნიშვნელობები.</div>
+
+      <div class="button-row">
+        <button class="btn-primary" id="addBtn">დამატება</button>
+        <button class="btn-success" id="saveBtn">შენახვა</button>
+        <button class="btn-danger" id="clearBtn">გასუფთავება</button>
+        <button class="btn-soft" id="radarBtn">რადარი</button>
+        <button class="btn-warning" id="summaryBtn">რეზიუმე</button>
+      </div>
+
+      <div id="statusBox" class="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title-row">
+        <h2>3. შემაჯამებელი ცხრილი</h2>
+        <span class="badge" id="entryCountBadge">ჩანაწერები: 0</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>შემფასებელი</th>
+              <th>პროფესიონალიზმი</th>
+              <th>პაციენტებთან კომუნიკაცია</th>
+              <th>კომუნიკაცია გუნდთან</th>
+              <th>მულტიდისციპლინური გუნდური მუშაობა</th>
+              <th>ორგანიზებულობა</th>
+              <th>კლინიკური პასუხისმგებლობა</th>
+              <th>ლიდერული უნარები</th>
+              <th>ქმედება</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody">
+            <tr>
+              <td colspan="10" class="empty-state">ჯერ ჩანაწერი არ არის დამატებული.</td>
+            </tr>
+          </tbody>
+          <tfoot id="summaryFoot">
+            <tr>
+              <td colspan="10">საშუალო მაჩვენებლები გამოჩნდება მონაცემების დამატების შემდეგ</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card hidden" id="chartSection">
+      <div class="section-title-row">
+        <h2>4. დომენების საშუალო ქულების რადარული დიაგრამა</h2>
+        <div class="button-row" style="margin-top:0">
+          <button class="btn-outline" id="printChartBtn">დიაგრამის ბეჭდვა</button>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-canvas-wrap">
+          <canvas id="radarCanvas" width="900" height="700"></canvas>
+        </div>
+        <div class="legend-grid" id="chartLegend"></div>
+        <div class="print-note">ბეჭდვის ღილაკი ბეჭდავს მხოლოდ დიაგრამას და შესაბამის საშუალო ქულებს.</div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="resumeSection">
+      <div class="section-title-row">
+        <h2>5. ავტომატურად გენერირებული რეზიუმე / დახასიათება</h2>
+        <div class="button-row" style="margin-top:0">
+          <button class="btn-outline" id="printResumeBtn">რეზიუმეს ბეჭდვა</button>
+        </div>
+      </div>
+
+      <div class="resume-shell" id="resumeContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "msf360_feedback_app_v3";
+
+    const domains = [
+      { key: "professionalism", label: "პროფესიონალიზმი" },
+      { key: "patientCommunication", label: "პაციენტებთან კომუნიკაცია" },
+      { key: "teamCommunication", label: "კომუნიკაცია გუნდთან" },
+      { key: "teamwork", label: "მულტიდისციპლინური გუნდური მუშაობა" },
+      { key: "organization", label: "ორგანიზებულობა" },
+      { key: "clinicalResponsibility", label: "კლინიკური პასუხისმგებლობა" },
+      { key: "leadership", label: "ლიდერული უნარები" }
+    ];
+
+    let msfEntries = [];
+
+    const els = {
+      studentName: document.getElementById("studentName"),
+      group: document.getElementById("group"),
+      semester: document.getElementById("semester"),
+      curation: document.getElementById("curation"),
+      curationStart: document.getElementById("curationStart"),
+      curationEnd: document.getElementById("curationEnd"),
+      evaluator: document.getElementById("evaluator"),
+      professionalism: document.getElementById("professionalism"),
+      patientCommunication: document.getElementById("patientCommunication"),
+      teamCommunication: document.getElementById("teamCommunication"),
+      teamwork: document.getElementById("teamwork"),
+      organization: document.getElementById("organization"),
+      clinicalResponsibility: document.getElementById("clinicalResponsibility"),
+      leadership: document.getElementById("leadership"),
+      summaryBody: document.getElementById("summaryBody"),
+      summaryFoot: document.getElementById("summaryFoot"),
+      entryCountBadge: document.getElementById("entryCountBadge"),
+      statusBox: document.getElementById("statusBox"),
+      chartSection: document.getElementById("chartSection"),
+      radarCanvas: document.getElementById("radarCanvas"),
+      chartLegend: document.getElementById("chartLegend"),
+      resumeSection: document.getElementById("resumeSection"),
+      resumeContent: document.getElementById("resumeContent")
+    };
+
+    function showStatus(message, type = "info") {
+      els.statusBox.textContent = message;
+      els.statusBox.className = `status show ${type}`;
+      clearTimeout(showStatus._timer);
+      showStatus._timer = setTimeout(() => {
+        els.statusBox.className = "status";
+        els.statusBox.textContent = "";
+      }, 3500);
+    }
+
+    function getStudentData() {
+      return {
+        studentName: els.studentName.value.trim(),
+        group: els.group.value.trim(),
+        semester: els.semester.value.trim(),
+        curation: els.curation.value.trim(),
+        curationStart: els.curationStart.value,
+        curationEnd: els.curationEnd.value
+      };
+    }
+
+    function getFullName() {
+      return getStudentData().studentName || "—";
+    }
+
+    function formatDate(isoDate) {
+      if (!isoDate) return "—";
+      const [y, m, d] = isoDate.split("-");
+      if (!y || !m || !d) return isoDate;
+      return `${d}.${m}.${y}`;
+    }
+
+    function buildCurationDisplay(student) {
+      const name = student.curation || "—";
+      const start = student.curationStart ? formatDate(student.curationStart) : "";
+      const end = student.curationEnd ? formatDate(student.curationEnd) : "";
+
+      if (start && end) return `${name} (${start} - ${end})`;
+      if (start) return `${name} (${start})`;
+      if (end) return `${name} (${end})`;
+      return name;
+    }
+
+    function validateScore(value, label) {
+      if (value === "" || value === null) {
+        throw new Error(`გთხოვთ შეავსოთ ველი: ${label}`);
+      }
+      const num = Number(value);
+      if (!Number.isFinite(num) || num < 1 || num > 8) {
+        throw new Error(`ველში "${label}" დაშვებულია მხოლოდ 1-დან 8-მდე რიცხვი.`);
+      }
+      return num;
+    }
+
+    function collectEntryFromInputs() {
+      if (!els.evaluator.value) {
+        throw new Error("გთხოვთ აირჩიოთ შემფასებელი.");
+      }
+
+      const entry = {
+        id: Date.now() + Math.random().toString(16).slice(2),
+        evaluator: els.evaluator.value
+      };
+
+      for (const domain of domains) {
+        entry[domain.key] = validateScore(els[domain.key].value, domain.label);
+      }
+
+      return entry;
+    }
+
+    function clearMsfInputs() {
+      els.evaluator.value = "";
+      domains.forEach(domain => {
+        els[domain.key].value = "";
+      });
+    }
+
+    function addEntry() {
+      try {
+        const entry = collectEntryFromInputs();
+        msfEntries.push(entry);
+        clearMsfInputs();
+        renderTable();
+        if (!els.chartSection.classList.contains("hidden")) renderRadarChart();
+        if (!els.resumeSection.classList.contains("hidden")) generateResume();
+        showStatus("MSF ჩანაწერი წარმატებით დაემატა.", "success");
+      } catch (err) {
+        showStatus(err.message, "error");
+      }
+    }
+
+    function removeEntry(id) {
+      msfEntries = msfEntries.filter(item => item.id !== id);
+      renderTable();
+
+      if (!els.chartSection.classList.contains("hidden")) {
+        if (msfEntries.length) renderRadarChart();
+        else els.chartSection.classList.add("hidden");
+      }
+
+      if (!els.resumeSection.classList.contains("hidden")) {
+        if (msfEntries.length) generateResume();
+        else els.resumeSection.classList.add("hidden");
+      }
+
+      showStatus("ჩანაწერი წაიშალა.", "info");
+    }
+
+    function calculateAverages() {
+      const averages = {};
+      if (!msfEntries.length) {
+        domains.forEach(d => averages[d.key] = 0);
+        return averages;
+      }
+
+      domains.forEach(domain => {
+        const sum = msfEntries.reduce((acc, item) => acc + Number(item[domain.key] || 0), 0);
+        averages[domain.key] = sum / msfEntries.length;
+      });
+
+      return averages;
+    }
+
+    function formatNumber(value) {
+      if (!Number.isFinite(Number(value))) return "—";
+      const rounded = Number(value).toFixed(2);
+      return rounded.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+    }
+
+    function renderTable() {
+      els.entryCountBadge.textContent = `ჩანაწერები: ${msfEntries.length}`;
+
+      if (!msfEntries.length) {
+        els.summaryBody.innerHTML = `
+          <tr>
+            <td colspan="10" class="empty-state">ჯერ ჩანაწერი არ არის დამატებული.</td>
+          </tr>
+        `;
+        els.summaryFoot.innerHTML = `
+          <tr>
+            <td colspan="10">საშუალო მაჩვენებლები გამოჩნდება მონაცემების დამატების შემდეგ</td>
+          </tr>
+        `;
+        return;
+      }
+
+      els.summaryBody.innerHTML = msfEntries.map((entry, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(entry.evaluator)}</td>
+          <td>${formatNumber(entry.professionalism)}</td>
+          <td>${formatNumber(entry.patientCommunication)}</td>
+          <td>${formatNumber(entry.teamCommunication)}</td>
+          <td>${formatNumber(entry.teamwork)}</td>
+          <td>${formatNumber(entry.organization)}</td>
+          <td>${formatNumber(entry.clinicalResponsibility)}</td>
+          <td>${formatNumber(entry.leadership)}</td>
+          <td>
+            <button class="small-delete" onclick="removeEntry('${entry.id}')">წაშლა</button>
+          </td>
+        </tr>
+      `).join("");
+
+      const avg = calculateAverages();
+
+      els.summaryFoot.innerHTML = `
+        <tr>
+          <td colspan="2">საშუალო</td>
+          <td>${formatNumber(avg.professionalism)}</td>
+          <td>${formatNumber(avg.patientCommunication)}</td>
+          <td>${formatNumber(avg.teamCommunication)}</td>
+          <td>${formatNumber(avg.teamwork)}</td>
+          <td>${formatNumber(avg.organization)}</td>
+          <td>${formatNumber(avg.clinicalResponsibility)}</td>
+          <td>${formatNumber(avg.leadership)}</td>
+          <td>—</td>
+        </tr>
+      `;
+    }
+
+    function saveData() {
+      const payload = {
+        student: getStudentData(),
+        entries: msfEntries
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      showStatus("მონაცემები შენახულია ბრაუზერში.", "success");
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        renderTable();
+        return;
+      }
+
+      try {
+        const data = JSON.parse(raw);
+        if (data.student) {
+          els.studentName.value = data.student.studentName || "";
+          els.group.value = data.student.group || "";
+          els.semester.value = data.student.semester || "";
+          els.curation.value = data.student.curation || "";
+          els.curationStart.value = data.student.curationStart || "";
+          els.curationEnd.value = data.student.curationEnd || "";
+        }
+
+        msfEntries = Array.isArray(data.entries) ? data.entries : [];
+        renderTable();
+        showStatus("შენახული მონაცემები ჩაიტვირთა.", "info");
+      } catch (e) {
+        renderTable();
+        showStatus("შენახული მონაცემების წაკითხვა ვერ მოხერხდა.", "error");
+      }
+    }
+
+    function clearAll() {
+      const ok = confirm("ნამდვილად გსურთ ყველა მონაცემის გასუფთავება?");
+      if (!ok) return;
+
+      els.studentName.value = "";
+      els.group.value = "";
+      els.semester.value = "";
+      els.curation.value = "";
+      els.curationStart.value = "";
+      els.curationEnd.value = "";
+      clearMsfInputs();
+
+      msfEntries = [];
+      localStorage.removeItem(STORAGE_KEY);
+
+      renderTable();
+      els.chartSection.classList.add("hidden");
+      els.resumeSection.classList.add("hidden");
+      els.chartLegend.innerHTML = "";
+      els.resumeContent.innerHTML = "";
+
+      const ctx = els.radarCanvas.getContext("2d");
+      ctx.clearRect(0, 0, els.radarCanvas.width, els.radarCanvas.height);
+
+      showStatus("ყველა მონაცემი გასუფთავდა.", "success");
+    }
+
+    function renderRadarChart() {
+      if (!msfEntries.length) {
+        showStatus("რადარის ასაგებად ჯერ დაამატეთ მინიმუმ ერთი MSF ჩანაწერი.", "error");
+        return;
+      }
+
+      const averages = calculateAverages();
+      els.chartSection.classList.remove("hidden");
+      drawRadar(averages);
+      renderLegend(averages);
+      els.chartSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function renderLegend(averages) {
+      els.chartLegend.innerHTML = domains.map(domain => `
+        <div class="legend-item">
+          <span>${domain.label}</span>
+          <strong>${formatNumber(averages[domain.key])}</strong>
+        </div>
+      `).join("");
+    }
+
+    function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = text.split(" ");
+      let line = "";
+      const lines = [];
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line ? line + " " + words[n] : words[n];
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+          lines.push(line);
+          line = words[n];
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+
+      lines.forEach((ln, i) => {
+        ctx.fillText(ln, x, y + (i * lineHeight));
+      });
+    }
+
+    function drawRadar(averages) {
+      const canvas = els.radarCanvas;
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      const cx = width / 2;
+      const cy = height / 2 + 18;
+      const radius = 250;
+      const maxValue = 8;
+      const levels = 8;
+      const count = domains.length;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "700 24px Calibri, Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("დომენების საშუალო ქულების რადარული დიაგრამა", cx, 38);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "16px Calibri, Arial, sans-serif";
+      ctx.fillText(`სტუდენტი: ${getFullName()}`, cx, 64);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      for (let level = 1; level <= levels; level++) {
+        const r = radius * (level / levels);
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+          const angle = (-Math.PI / 2) + (Math.PI * 2 * i / count);
+          const x = Math.cos(angle) * r;
+          const y = Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = level === levels ? "#94a3b8" : "#dbe7f3";
+        ctx.lineWidth = level === levels ? 1.5 : 1;
+        ctx.stroke();
+
+        if ([1,2,4,6,8].includes(level)) {
+          ctx.fillStyle = "#64748b";
+          ctx.font = "13px Calibri, Arial, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(String(level), 8, -r + 4);
+        }
+      }
+
+      for (let i = 0; i < count; i++) {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / count);
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      domains.forEach((domain, i) => {
+        const value = Math.max(0, Math.min(maxValue, averages[domain.key]));
+        const r = radius * (value / maxValue);
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / count);
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = "rgba(37,99,235,0.22)";
+      ctx.strokeStyle = "rgba(37,99,235,0.95)";
+      ctx.lineWidth = 3;
+      ctx.fill();
+      ctx.stroke();
+
+      domains.forEach((domain, i) => {
+        const value = Math.max(0, Math.min(maxValue, averages[domain.key]));
+        const r = radius * (value / maxValue);
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / count);
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#1d4ed8";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      domains.forEach((domain, i) => {
+        const angle = (-Math.PI / 2) + (Math.PI * 2 * i / count);
+        const labelRadius = radius + 34;
+        const x = Math.cos(angle) * labelRadius;
+        const y = Math.sin(angle) * labelRadius;
+
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "700 15px Calibri, Arial, sans-serif";
+
+        if (Math.abs(Math.cos(angle)) < 0.2) ctx.textAlign = "center";
+        else if (Math.cos(angle) > 0) ctx.textAlign = "left";
+        else ctx.textAlign = "right";
+
+        drawWrappedText(ctx, domain.label, x, y, 150, 18);
+      });
+
+      ctx.restore();
+    }
+
+    function getDescriptorText(key, avg) {
+      if (key === "professionalism") {
+        if (avg < 5) return "პროფესიული ქცევის სტანდარტების (პატივისცემა, სანდოობა, ეთიკა, კონფიდენციალობა) დაცვის მნიშვნელოვანი ხარვეზები. მუდმივად საჭიროებს მნიშვნელოვან გარეგან დახმარებას და მითითებებს.";
+        if (avg < 7) return "ძირითდად იცავს პროფესიული ქცევის სტანდარტებს (პატივისცემა, სანდოობა, ეთიკა, კონფიდენციალობა). პერიოდულად საჭიროებს გარეგან დახმარებას და მითთებებს.";
+        return "იდეალურად იცავს პროფესიული ქცევის სტანდარტებს (პატივისცემა, სანდოობა, ეთიკა, კონფიდენციალობა). არ ან იშვიათად საჭიროებს გარეგან დახმარებას და მითთებებს.";
+      }
+
+      if (key === "patientCommunication") {
+        if (avg < 5) return "პაციენტთან კომუნიკაცია არაეფექტურია. ურთიერთობებს არ ახასიათებს სიცხადე, ემპათია; უჭირს პაციენტის მოსმენა.";
+        if (avg < 7) return "პაციენტთან კომუნიკაცია უმეტესწილად ეფექტურია. პერიოდულად საჭიროებს გარედან აქცენტირებას/მითითებებს კომუნიკაციის სიცხადის, ემპათიის და პაციენტის მოსმენის თაობაზე.";
+        return "გამოირჩევა პაციენტთან კომუნიკაციის ადეკვატური უნარით. ურთიერთობების ფორმები მკაფიო და ცხადი; არის ემპათიური და გულისყურით უსმენს პაციენტს.";
+      }
+
+      if (key === "teamCommunication") {
+        if (avg < 5) return "აქვს სამედიცინო გუნდის შიგნით ინფორმაციის გაზიარების პრობლემა, ურთიერთობებში არაადეკვატურია და უჭირს თანამშრომლობა.";
+        if (avg < 7) return "პერიოდულად აქვს სამედიცინო გუნდის შიგნით ინფორმაციის გაზიარების უმნიშვნელო პრობლემები. ძირითადად შეუძლია ადეკვატური თანამშრომლობა.";
+        return "გამოირჩევა სამედიცინო გუნდის წევრებთან სრულყოფილი კომუნიკაციის უნარებით, ინფორმაციის გაზიარების, ადეკვატური რეაგირების და თანამშრომლობის თვალსაზრისით.";
+      }
+
+      if (key === "teamwork") {
+        if (avg < 5) return "აქვს მულტიდისციპლინური გუნდური მუშაობის მნიშვნელოვანი პრობლემები.";
+        if (avg < 7) return "გააჩნია მულტიდისციპლინური გუნდური მუშაობის ძირითადი უნარები, თუმცა პერიოდულად საჭიროებს გარეგან დახმარებას და მითითებებს.";
+        return "გამოირჩევა მულტიდისციპლინური გუნდური მუშაობის ადეკვატური უნარებით, დახმარების/მითითებების საჭიროების გარეშე ან უმნიშვნელო დახმარებით.";
+      }
+
+      if (key === "organization") {
+        if (avg < 5) return "არაორგანიზებულია. არ შეუძლია დროის ეფექტური გამოყენება; დავალებების/ამოცანების, ძირითადად, ვერ ასრულებს ან ასრულებს მნიშვნელოვანი გარეგანი დახმარებით/მითითებით.";
+        if (avg < 7) return "აქვს ორგანიზებულობის გარკვეულიი ხარვეზები. საჭიროებს გარკვეულ გარეგან დახმარებას/მითითებებს დროის ეფექტური გამოყენების და დავალებების/ამოცანების შესრულების თვალსაზრისით.";
+        return "გამოირჩევა საუკეთესო ორგანიზებულობით და სანდოობით, ეფექტურად იყენებს დროს. დროულად და იდეალურად ასრულებს დავალებებს და ამოცანებს.";
+      }
+
+      if (key === "clinicalResponsibility") {
+        if (avg < 5) return "ვერ საზღვრავს საკუთარ შესაძლებლობებს, ნაკლები წარმოდგენა აქვს საკუთარი უფლებამოსილებების/კომპეტენციების თაობაზე. ადეკვატურად ვერ რეაგირებს კლინიკური ესკალაციის საჭიროებებზე.";
+        if (avg < 7) return "ძირითადად იცის საკუთარი შესაძლებლობების, უფლებამოსილებების და კომპეტენციების ზღვარი. ძირითდად ადეკვატურად რეაგირებს კლინიკური ესკალაციის აუცილებლობაზე. საჭიროებს გარეგან დახმარებას და მითთებებს.";
+        return "გაცნობიერებული აქვს საკუთარი შესაძლებლობების, უფლებამოსილებების და კომპეტენციების ზღვარი. ყოველთვის ადეკვატურად რეაგირებს კლინიკური ესკალაციის საჭიროებებზე.";
+      }
+
+      if (key === "leadership") {
+        if (avg < 5) return "არ ახდენს ლიდერული უნარების დემონსტრირებას. მნიშვნელოვან გარეგან დახმარებას და მითითებებს საჭიროებს პაციენტის მართვის კოორდინაციის თვალსაზრისით.";
+        if (avg < 7) return "აქვს ლიდერობის გარკვეული ხარვეზები. პერიოდულად საჭიროებს გარეგან დახმარებას და მითითებებს საკუთარი კომპეტენციის ფარგლებში პაციენტის მართვის კოორდინაციის თვალსაზრისით.";
+        return "აქვს ლიდერის გამხატული თვისებები. შეუძლია საკუთარი კომპეტენციის ფარგლებში კოორდინაცია გაუწიოს პაციენტის მართვის პრცესს, გარეგანი დახმარების გარეშე ან მინიმალური მითითებებით.";
+      }
+
+      return "";
+    }
+
+    function generateResume() {
+      if (!msfEntries.length) {
+        showStatus("რეზიუმეს გენერაციისთვის ჯერ დაამატეთ მინიმუმ ერთი MSF ჩანაწერი.", "error");
+        return;
+      }
+
+      const student = getStudentData();
+      const averages = calculateAverages();
+
+      const descriptorHtml = domains.map(domain => `
+        <div class="descriptor-card">
+          <div class="descriptor-head">
+            <h4>${domain.label}</h4>
+            <span class="score-pill">საშუალო ქულა: ${formatNumber(averages[domain.key])}</span>
+          </div>
+          <div>${getDescriptorText(domain.key, averages[domain.key])}</div>
+        </div>
+      `).join("");
+
+      els.resumeContent.innerHTML = `
+        <div class="resume-header">
+          <h2>შინაგან დაავადებათა #1 დეპარტამენტი</h2>
+          <h3>დახასიათება</h3>
+        </div>
+
+        <div class="resume-student-card">
+          <div class="resume-student-grid">
+            <div class="resume-item"><strong>სტუდენტი:</strong> <span>${escapeHtml(student.studentName || "—")}</span></div>
+            <div class="resume-item"><strong>ჯგუფი:</strong> <span>${escapeHtml(student.group || "—")}</span></div>
+            <div class="resume-item"><strong>სემესტრი:</strong> <span>${escapeHtml(student.semester || "—")}</span></div>
+            <div class="resume-item"><strong>კურაცია:</strong> <span>${escapeHtml(buildCurationDisplay(student))}</span></div>
+          </div>
+        </div>
+
+        <div class="descriptor-list">
+          ${descriptorHtml}
+        </div>
+      `;
+
+      els.resumeSection.classList.remove("hidden");
+      els.resumeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function printChart() {
+      if (!msfEntries.length) {
+        showStatus("ბეჭდვისთვის ჯერ შექმენით დიაგრამა.", "error");
+        return;
+      }
+
+      const averages = calculateAverages();
+      const imgData = els.radarCanvas.toDataURL("image/png");
+      const legendHtml = domains.map(d => `
+        <div class="print-legend-item">
+          <span>${d.label}</span>
+          <strong>${formatNumber(averages[d.key])}</strong>
+        </div>
+      `).join("");
+
+      const printHtml = `
+        <div class="print-wrapper">
+          <h1>დომენების საშუალო ქულების რადარული დიაგრამა</h1>
+          <h2>სტუდენტი: ${escapeHtml(getFullName())}</h2>
+          <img src="${imgData}" alt="რადარული დიაგრამა" />
+          <div class="print-legend">${legendHtml}</div>
+        </div>
+      `;
+
+      openPrintWindow("რადარული დიაგრამა", printHtml, `
+        body{font-family:Calibri, Arial, sans-serif; margin:24px; color:#111827;}
+        .print-wrapper{text-align:center;}
+        h1{margin:0 0 8px; font-size:26px;}
+        h2{margin:0 0 18px; font-size:18px; font-weight:600; color:#4b5563;}
+        img{max-width:100%; height:auto; border:1px solid #dbe4f0; border-radius:12px;}
+        .print-legend{
+          margin-top:18px;
+          display:grid;
+          grid-template-columns:repeat(2, minmax(0,1fr));
+          gap:10px;
+          text-align:left;
+        }
+        .print-legend-item{
+          border:1px solid #dbe4f0;
+          border-radius:10px;
+          padding:10px 12px;
+          display:flex;
+          justify-content:space-between;
+          gap:10px;
+        }
+        @media print{
+          body{margin:10mm;}
+        }
+      `);
+    }
+
+    function printResume() {
+      if (!els.resumeContent.innerHTML.trim()) {
+        showStatus("ჯერ შექმენით რეზიუმე.", "error");
+        return;
+      }
+
+      if (msfEntries.length && els.chartSection.classList.contains("hidden")) {
+        renderRadarChart();
+      }
+
+      const averages = calculateAverages();
+      const imgData = els.radarCanvas.toDataURL("image/png");
+      const legendHtml = domains.map(d => `
+        <div class="print-legend-item">
+          <span>${d.label}</span>
+          <strong>${formatNumber(averages[d.key])}</strong>
+        </div>
+      `).join("");
+
+      const fullPrintHtml = `
+        <div class="resume-print-container">
+          ${els.resumeContent.innerHTML}
+
+          <div class="chart-print-block">
+            <div class="chart-print-header">
+              <h2>დომენების საშუალო ქულების რადარული დიაგრამა</h2>
+              <div class="chart-student-line">სტუდენტი: ${escapeHtml(getFullName())}</div>
+            </div>
+            <div class="chart-image-wrap">
+              <img src="${imgData}" alt="რადარული დიაგრამა" />
+            </div>
+            <div class="print-legend">${legendHtml}</div>
+          </div>
+        </div>
+      `;
+
+      openPrintWindow("რეზიუმე", fullPrintHtml, `
+        body{
+          font-family:Calibri, Arial, sans-serif;
+          margin:22px;
+          color:#111827;
+          background:#fff;
+        }
+        .resume-header{
+          text-align:center;
+          margin-bottom:16px;
+        }
+        .resume-header h2{
+          margin:0;
+          font-size:28px;
+          font-weight:800;
+        }
+        .resume-header h3{
+          margin:8px 0 0;
+          font-size:20px;
+          font-weight:700;
+        }
+        .resume-student-card{
+          border:1px solid #dbe4f0;
+          background:#f9fbff;
+          border-radius:14px;
+          padding:16px;
+          margin-bottom:16px;
+        }
+        .resume-student-grid{
+          display:grid;
+          grid-template-columns:repeat(2, minmax(0,1fr));
+          gap:10px 16px;
+        }
+        .resume-item{
+          display:flex;
+          gap:8px;
+          font-size:15px;
+        }
+        .resume-item strong{
+          min-width:96px;
+        }
+        .descriptor-list{
+          display:grid;
+          gap:12px;
+        }
+        .descriptor-card{
+          border:1px solid #dbe4f0;
+          border-radius:14px;
+          padding:14px;
+          page-break-inside:avoid;
+        }
+        .descriptor-head{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:10px;
+          margin-bottom:8px;
+          flex-wrap:wrap;
+        }
+        .descriptor-head h4{
+          margin:0;
+          font-size:17px;
+        }
+        .score-pill{
+          padding:6px 10px;
+          border-radius:999px;
+          background:#eef4ff;
+          color:#1e40af;
+          font-weight:800;
+          font-size:13px;
+        }
+        .chart-print-block{
+          margin-top:28px;
+          page-break-before:auto;
+        }
+        .chart-print-header{
+          text-align:center;
+          margin-bottom:14px;
+        }
+        .chart-print-header h2{
+          margin:0 0 6px;
+          font-size:24px;
+        }
+        .chart-student-line{
+          font-size:16px;
+          color:#4b5563;
+        }
+        .chart-image-wrap{
+          text-align:center;
+          margin-bottom:14px;
+        }
+        .chart-image-wrap img{
+          max-width:100%;
+          height:auto;
+          border:1px solid #dbe4f0;
+          border-radius:12px;
+        }
+        .print-legend{
+          margin-top:16px;
+          display:grid;
+          grid-template-columns:repeat(2, minmax(0,1fr));
+          gap:10px;
+          text-align:left;
+        }
+        .print-legend-item{
+          border:1px solid #dbe4f0;
+          border-radius:10px;
+          padding:10px 12px;
+          display:flex;
+          justify-content:space-between;
+          gap:10px;
+        }
+        @media print{
+          body{margin:10mm;}
+        }
+      `);
+    }
+
+    function openPrintWindow(title, bodyHtml, extraStyles = "") {
+      const win = window.open("", "_blank");
+      if (!win) {
+        showStatus("ბრაუზერმა დაბლოკა ბეჭდვის ფანჯარა.", "error");
+        return;
+      }
+
+      win.document.open();
+      win.document.write(`
+        <!DOCTYPE html>
+        <html lang="ka">
+        <head>
+          <meta charset="UTF-8" />
+          <title>${title}</title>
+          <style>
+            *{box-sizing:border-box}
+            ${extraStyles}
+          </style>
+        </head>
+        <body>
+          ${bodyHtml}
+          <script>
+            window.onload = function(){
+              window.focus();
+              window.print();
+            };
+          <\/script>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    document.getElementById("addBtn").addEventListener("click", addEntry);
+    document.getElementById("saveBtn").addEventListener("click", saveData);
+    document.getElementById("clearBtn").addEventListener("click", clearAll);
+    document.getElementById("radarBtn").addEventListener("click", renderRadarChart);
+    document.getElementById("summaryBtn").addEventListener("click", generateResume);
+    document.getElementById("printChartBtn").addEventListener("click", printChart);
+    document.getElementById("printResumeBtn").addEventListener("click", printResume);
+
+    window.addEventListener("load", loadData);
+    window.removeEntry = removeEntry;
+  </script>
+</body>
+</html>
