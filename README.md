@@ -31,8 +31,7 @@
 ```
 Triangulation/
 ├── docs/                        # Frontend (GitHub Pages root)
-│   ├── index.html               # კონსოლი standalone ინსტრუმენტების ღილაკებით
-│   ├── admin.html               # აპლიკაცია (login + dashboard SPA)
+│   ├── index.html               # აპლიკაცია (login + dashboard SPA)
 │   ├── uceem.html               # საჯარო ანონიმური UCEEM ფორმა
 │   ├── css/app.css
 │   └── js/
@@ -90,7 +89,6 @@ Triangulation/
 1. Repo → **Settings → Pages → Deploy from a branch**
 2. Branch: `main`, folder: **`/docs`** → Save.
 3. საიტი: `https://triangulationtsmu.github.io/Triangulation/`
-   ადმინისტრირების პანელი: `https://triangulationtsmu.github.io/Triangulation/admin.html`
    UCEEM საჯარო ბმული: `.../Triangulation/uceem.html?c=<campaignId>`
 
 **ალტერნატივა — Firebase Hosting:** `firebase deploy --only hosting`
