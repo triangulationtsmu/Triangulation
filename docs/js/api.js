@@ -106,7 +106,7 @@ export async function ensureAdminSeed() {
   if (idx.exists()) return false;
   await createUserAccount({
     username: 'kakha', password: '1234',
-    firstName: 'კახაბერ', lastName: 'ჭერლიძე',
+    firstName: 'კახაბერ', lastName: 'ჭელიძე',
     role: 'department_head', isAdmin: true, departmentId: null, active: true,
   }, 'seed');
   return true;
