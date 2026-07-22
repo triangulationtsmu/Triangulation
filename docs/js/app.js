@@ -822,17 +822,23 @@ function parseStudentPdfText(text) {
   const specialty = (header.match(/სპეციალობა:\s*([^;]+?)(?:\s+კურსი:|$)/) || [])[1]?.trim() || '';
   const students = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^(\d+)\s+(.+)$/);
+    let m = lines[i].match(/^(\d+)\s+(.+)$/);
+    if (!m && /^\d+$/.test(lines[i]) && lines[i + 1]) {
+      m = [`${lines[i]} ${lines[i + 1]}`, lines[i], lines[i + 1]];
+      i++;
+    }
     if (!m) continue;
     const raw = m[2].replace(/;.*$/, '').trim();
+    if (!/[\u10A0-\u10FF]/.test(raw)) continue;
     const eng = raw.match(/[A-Za-z][A-Za-z' -]+$/)?.[0]?.trim() || '';
     const ge = cleanPersonName(eng ? raw.slice(0, raw.length - eng.length) : raw);
     const parts = ge.split(' ');
     const lastName = parts.shift() || '';
     const firstName = parts.join(' ');
-    const next = [lines[i - 1], lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
-    const phone = normalizePhone((next.match(/;?\s*(\+?\d[\d\s-]{6,}\d)/) || [])[1] || '');
-    const email = (next.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    const phoneContext = [lines[i], lines[i - 1], lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
+    const emailContext = [lines[i], lines[i + 1], lines[i + 2]].filter(Boolean).join(' ');
+    const phone = normalizePhone((phoneContext.match(/;?\s*(\+?\d[\d\s-]{6,}\d)/) || [])[1] || '');
+    const email = (emailContext.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
     if (firstName && lastName) students.push({ firstName, lastName, englishName: eng || null, phone, email });
   }
   return { course, semester, group, specialty, students };
@@ -844,7 +850,29 @@ async function extractPdfText(file) {
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
-    pages.push(content.items.map((item) => item.str).join('\n'));
+    const rows = [];
+    content.items.forEach((item) => {
+      const text = String(item.str || '').trim();
+      if (!text) return;
+      const x = item.transform?.[4] || 0;
+      const y = item.transform?.[5] || 0;
+      let row = rows.find((r) => Math.abs(r.y - y) < 3);
+      if (!row) {
+        row = { y, parts: [] };
+        rows.push(row);
+      }
+      row.parts.push({ x, text });
+    });
+    pages.push(rows
+      .sort((a, b) => b.y - a.y)
+      .map((row) => row.parts
+        .sort((a, b) => a.x - b.x)
+        .map((part) => part.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim())
+      .filter(Boolean)
+      .join('\n'));
   }
   return pages.join('\n');
 }
