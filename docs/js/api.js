@@ -98,12 +98,62 @@ export async function changeUserPassword(uid, currentPassword, newPassword) {
 export async function setUserActive(uid, active) {
   await updateDoc(doc(db, 'users', uid), { active: !!active, updatedAt: serverTimestamp() });
 }
+export async function updateUserAccount(uid, data) {
+  const userRef = doc(db, 'users', uid);
+  const currentSnap = await getDoc(userRef);
+  if (!currentSnap.exists()) throw new Error('მომხმარებელი ვერ მოიძებნა.');
+  const current = currentSnap.data();
+  const normalized = normalizeUsername(data.username || current.username);
+  if (!normalized) throw new Error('username სავალდებულოა.');
+  const oldNormalized = current.normalizedUsername || normalizeUsername(current.username);
+  const idxRef = doc(db, 'usernameIndex', normalized);
+  if (normalized !== oldNormalized && (await getDoc(idxRef)).exists()) {
+    throw new Error('ეს username უკვე გამოყენებულია.');
+  }
+
+  const batch = writeBatch(db);
+  batch.update(userRef, {
+    username: data.username,
+    normalizedUsername: normalized,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    role: data.role,
+    isAdmin: data.isAdmin === true,
+    departmentId: data.departmentId || null,
+    active: data.active !== false,
+    updatedAt: serverTimestamp(),
+  });
+  if (normalized !== oldNormalized) {
+    batch.delete(doc(db, 'usernameIndex', oldNormalized));
+    batch.set(idxRef, { uid, username: data.username, createdAt: serverTimestamp() });
+  }
+  await batch.commit();
+}
+export async function deleteUserAccount(uid) {
+  const userSnap = await getDoc(doc(db, 'users', uid));
+  if (!userSnap.exists()) return;
+  const u = userSnap.data();
+  const normalized = u.normalizedUsername || normalizeUsername(u.username);
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'users', uid));
+  batch.delete(doc(db, 'credentials', uid));
+  if (normalized) batch.delete(doc(db, 'usernameIndex', normalized));
+  await batch.commit();
+}
 
 // One-time bootstrap of the initial administrator (idempotent).
 export async function ensureAdminSeed() {
   const normalized = 'kakha';
   const idx = await getDoc(doc(db, 'usernameIndex', normalized));
-  if (idx.exists()) return false;
+  if (idx.exists()) {
+    const uid = idx.data().uid;
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists() && userSnap.data().lastName === 'ჭერლიძე') {
+      await updateDoc(userRef, { lastName: 'ჭელიძე', updatedAt: serverTimestamp() });
+    }
+    return false;
+  }
   await createUserAccount({
     username: 'kakha', password: '1234',
     firstName: 'კახაბერ', lastName: 'ჭელიძე',
@@ -225,8 +275,9 @@ export async function setStudentGroupArchived(groupId, archived) {
 }
 export async function deleteStudentGroup(groupId) {
   const batch = writeBatch(db);
+  const now = serverTimestamp();
   const snap = await getDocs(query(collection(db, 'students'), where('groupId', '==', groupId)));
-  snap.docs.forEach((row) => batch.delete(row.ref));
+  snap.docs.forEach((row) => batch.update(row.ref, { groupId: null, groupArchived: false, updatedAt: now }));
   batch.delete(doc(db, 'studentGroups', groupId));
   await batch.commit();
 }

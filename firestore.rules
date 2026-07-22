@@ -38,6 +38,7 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly([
         'anonymousResponseId', 'campaignId', 'targetUserId', 'targetRole',
         'targetName', 'departmentId', 'academicYear', 'semester', 'group',
+        'curation', 'curationStart', 'curationEnd', 'contextLabel',
         'answers', 'calculatedScores', 'createdAt'
       ]);
       allow update, delete: if false;

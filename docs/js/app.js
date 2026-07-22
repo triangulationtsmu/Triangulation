@@ -110,7 +110,7 @@ function navItems() {
   if (state.me.isAdmin) {
     items.push({ id: 'departments', label: 'დეპარტამენტები' });
     items.push({ id: 'users', label: 'მომხმარებლები' });
-    items.push({ id: 'uceem', label: 'UCEEM კამპანიები' });
+    items.push({ id: 'uceem', label: 'UCEEM ბმული' });
     items.push({ id: 'uceemResults', label: 'UCEEM შედეგები' });
   }
   items.push({ id: 'profile', label: 'პროფილი' });
@@ -213,11 +213,9 @@ const ASSESSMENT_TEMPLATE_FILES = {
 // =========================================================================
 async function viewWorkspace(host) {
   clear(host);
-  // Department: admins choose; others locked to own department.
-  const canChooseDept = state.me.isAdmin;
-  const deptSel = canChooseDept
-    ? selectEl('ws-dept', deptOptions(false), state.me.departmentId || '')
-    : null;
+  const deptSel = selectEl('ws-dept', deptOptions(true), '');
+  const firstInput = h('input', { type: 'text', id: 'ws-first', placeholder: 'სახელი' });
+  const lastInput = h('input', { type: 'text', id: 'ws-last', placeholder: 'გვარი' });
   const yearInput = selectEl('ws-year', academicYearOptions(new Date().getFullYear(), 12, true), '');
   const semSel = selectEl('ws-sem', [{ value: '', label: 'ყველა სემესტრი' }].concat(
     ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'].map((s) => ({ value: s, label: s + ' სემესტრი' }))));
@@ -227,17 +225,18 @@ async function viewWorkspace(host) {
 
   const loadBtn = h('button', { text: 'სტუდენტების ჩვენება' });
   const loadGuarded = guardButton(loadBtn, async () => {
-    const departmentId = canChooseDept ? deptSel.value : state.me.departmentId;
-    if (!departmentId) { toast('აირჩიეთ დეპარტამენტი.', 'error'); return; }
     await loadWorkspaceStudents(listHost, {
-      departmentId, group: groupInput.value.trim(),
+      departmentId: deptSel.value || null,
+      firstName: firstInput.value.trim(),
+      lastName: lastInput.value.trim(),
+      group: groupInput.value.trim(),
       semester: semSel.value, academicYear: yearInput.value.trim(),
     });
   });
   loadBtn.addEventListener('click', loadGuarded);
 
   const adminUceemBtn = state.me.isAdmin
-    ? h('button', { class: 'secondary', text: 'UCEEM ლინკის კოპირება', onClick: () => copyUceemLinkForContext(canChooseDept ? deptSel.value : state.me.departmentId) })
+    ? h('button', { class: 'secondary', text: 'UCEEM ლინკის კოპირება', onClick: () => copyUceemLinkForContext() })
     : null;
 
   const filtersCard = h('div', { class: 'card' }, [
@@ -245,8 +244,9 @@ async function viewWorkspace(host) {
       h('small', { class: 'muted', text: 'დეპარტამენტი → სასწავლო წელი/სემესტრი → ჯგუფი → სტუდენტები' })]),
     h('div', { class: 'body' }, [
       h('div', { class: 'filters' }, [
-        canChooseDept ? h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), deptSel])
-          : h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), h('input', { type: 'text', value: deptName(state.me.departmentId), disabled: 'true' })]),
+        h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), deptSel]),
+        h('div', { class: 'field' }, [h('label', { text: 'სახელი' }), firstInput]),
+        h('div', { class: 'field' }, [h('label', { text: 'გვარი' }), lastInput]),
         h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი' }), yearInput]),
         h('div', { class: 'field' }, [h('label', { text: 'სემესტრი' }), semSel]),
         h('div', { class: 'field' }, [h('label', { text: 'ჯგუფი' }), groupInput]),
@@ -258,11 +258,14 @@ async function viewWorkspace(host) {
   host.appendChild(listHost);
 }
 
-async function loadWorkspaceStudents(listHost, { departmentId, group, semester, academicYear }) {
+async function loadWorkspaceStudents(listHost, { departmentId, firstName, lastName, group, semester, academicYear }) {
   clear(listHost);
   listHost.appendChild(h('div', { class: 'loading-overlay' }, [h('span', { class: 'spinner' }), ' სტუდენტები იტვირთება…']));
   let students = await api.queryStudents({ departmentId, group: group || null });
+  const norm = (s) => (s || '').toString().toLowerCase();
   students = students.filter((s) =>
+    (!firstName || norm(s.firstName).includes(norm(firstName))) &&
+    (!lastName || norm(s.lastName).includes(norm(lastName))) &&
     (!semester || s.semester === semester) &&
     (!academicYear || (s.academicYear || '') === academicYear));
   students.sort((a, b) => (`${a.lastName} ${a.firstName}`).localeCompare(`${b.lastName} ${b.firstName}`, 'ka'));
@@ -274,7 +277,7 @@ async function loadWorkspaceStudents(listHost, { departmentId, group, semester, 
   }
   const card = h('div', { class: 'card' }, [
     h('div', { class: 'section-title' }, [h('h2', { text: `სტუდენტები (${students.length})` }),
-      h('small', { class: 'muted', text: deptName(departmentId) })]),
+      h('small', { class: 'muted', text: departmentId ? deptName(departmentId) : 'ყველა დეპარტამენტი' })]),
     h('div', { class: 'body stack' }, students.map(studentRow)),
   ]);
   listHost.appendChild(card);
@@ -795,6 +798,7 @@ async function viewUsers(host) {
     h('td', { text: u.departmentId ? deptName(u.departmentId) : '—' }),
     h('td', { class: 'num' }, [h('span', { class: `pill ${u.active !== false ? 'badge-ok' : 'badge-off'}`, text: u.active !== false ? 'აქტიური' : 'გათიშული' })]),
     h('td', { class: 'num' }, [h('div', { class: 'btn-group' }, [
+      h('button', { class: 'sm ghost', text: 'რედაქტ.', onClick: () => openUserForm(host, u) }),
       h('button', { class: 'sm ghost', text: 'პაროლის აღდგენა', onClick: () => openResetPassword(u) }),
       h('button', {
         class: 'sm ' + (u.active !== false ? 'bad' : 'secondary'),
@@ -807,6 +811,13 @@ async function viewUsers(host) {
           catch (e) { toast(e.message || 'ვერ განახლდა', 'error'); }
         },
       }),
+      h('button', { class: 'sm bad', text: 'წაშლა', onClick: async () => {
+        if (u.uid === state.me.uid) { toast('საკუთარი ანგარიშის წაშლა შეუძლებელია.', 'error'); return; }
+        const ok = await confirmDialog(`ნამდვილად წავშალო მომხმარებელი „${u.firstName} ${u.lastName}“?`);
+        if (!ok) return;
+        try { await api.deleteUserAccount(u.uid); toast('მომხმარებელი წაიშალა.', 'success'); viewUsers(host); }
+        catch (e) { toast(e.message || 'ვერ წაიშალა', 'error'); }
+      } }),
     ])]),
   ]));
 
@@ -820,27 +831,28 @@ async function viewUsers(host) {
   ]));
 }
 
-function openUserForm(host) {
-  const username = h('input', { type: 'text', placeholder: 'username' });
+function openUserForm(host, existing = null) {
+  const username = h('input', { type: 'text', placeholder: 'username', value: existing?.username || '' });
   const password = h('input', { type: 'text', placeholder: 'პაროლი' });
-  const firstName = h('input', { type: 'text' });
-  const lastName = h('input', { type: 'text' });
-  const roleSel = selectEl('nu-role', E.ROLES.map((r) => ({ value: r.value, label: r.label })), 'curator');
-  const deptSel = selectEl('nu-dept', deptOptions(true), '');
-  const activeSel = selectEl('nu-active', [{ value: 'true', label: 'აქტიური' }, { value: 'false', label: 'გათიშული' }], 'true');
+  const firstName = h('input', { type: 'text', value: existing?.firstName || '' });
+  const lastName = h('input', { type: 'text', value: existing?.lastName || '' });
+  const roleSel = selectEl('nu-role', E.ROLES.map((r) => ({ value: r.value, label: r.label })), existing?.role || 'curator');
+  const deptSel = selectEl('nu-dept', deptOptions(true), existing?.departmentId || '');
+  const activeSel = selectEl('nu-active', [{ value: 'true', label: 'აქტიური' }, { value: 'false', label: 'გათიშული' }],
+    existing ? (existing.active !== false ? 'true' : 'false') : 'true');
 
   const body = h('div', { class: 'grid grid-2' }, [
     h('div', { class: 'field' }, [h('label', { text: 'მომხმარებელი (username) *' }), username]),
-    h('div', { class: 'field' }, [h('label', { text: 'პაროლი *' }), password]),
+    existing ? null : h('div', { class: 'field' }, [h('label', { text: 'პაროლი *' }), password]),
     h('div', { class: 'field' }, [h('label', { text: 'სახელი *' }), firstName]),
     h('div', { class: 'field' }, [h('label', { text: 'გვარი *' }), lastName]),
     h('div', { class: 'field' }, [h('label', { text: 'როლი *' }), roleSel]),
     h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), deptSel]),
     h('div', { class: 'field' }, [h('label', { text: 'აქტიურია თუ არა' }), activeSel]),
-  ]);
-  const saveBtn = h('button', { text: 'შექმნა' });
+  ].filter(Boolean));
+  const saveBtn = h('button', { text: existing ? 'შენახვა' : 'შექმნა' });
   const cancelBtn = h('button', { class: 'ghost', text: 'გაუქმება' });
-  const modal = openModal({ title: 'ახალი მომხმარებელი', content: body, footer: [cancelBtn, saveBtn], width: '760px' });
+  const modal = openModal({ title: existing ? 'მომხმარებლის რედაქტირება' : 'ახალი მომხმარებელი', content: body, footer: [cancelBtn, saveBtn], width: '760px' });
   cancelBtn.addEventListener('click', () => modal.close());
 
   saveBtn.addEventListener('click', guardButton(saveBtn, async () => {
@@ -849,14 +861,17 @@ function openUserForm(host) {
       firstName: firstName.value.trim(), lastName: lastName.value.trim(),
       role: roleSel.value, departmentId: deptSel.value || null, active: activeSel.value === 'true',
     };
-    if (!data.username || !data.password || !data.firstName || !data.lastName || !data.role) {
+    if (!data.username || (!existing && !data.password) || !data.firstName || !data.lastName || !data.role) {
       toast('შეავსეთ ყველა სავალდებულო ველი (*).', 'error'); return;
     }
+    if (existing?.uid === state.me.uid && data.active === false) {
+      toast('საკუთარი ანგარიშის გათიშვა შეუძლებელია.', 'error'); return;
+    }
     try {
-      await api.createUserAccount(data, state.me.uid);
-      toast('მომხმარებელი შეიქმნა.', 'success');
+      if (existing) { await api.updateUserAccount(existing.uid, data); toast('მომხმარებელი განახლდა.', 'success'); }
+      else { await api.createUserAccount(data, state.me.uid); toast('მომხმარებელი შეიქმნა.', 'success'); }
       modal.close(); viewUsers(host);
-    } catch (e) { toast(e.message || 'ვერ შეიქმნა', 'error'); }
+    } catch (e) { toast(e.message || 'ვერ შეინახა', 'error'); }
   }));
 }
 
@@ -1269,93 +1284,26 @@ function openStudentForm(host, existing = null) {
 // =========================================================================
 async function viewUceem(host) {
   clear(host);
-  const [campaigns, users] = await Promise.all([api.listCampaigns(), api.listUsers()]);
-  const staff = users.filter((u) => u.active !== false);
-
-  const title = h('input', { type: 'text', placeholder: 'კამპანიის სახელი (სურვილისამებრ)' });
-  const deptSel = selectEl('uc-dept', deptOptions(false), state.me.departmentId || '');
-  const year = h('input', { type: 'text', placeholder: 'მაგ., 2025-2026' });
-  const semSel = selectEl('uc-sem', [{ value: '', label: 'აირჩიეთ სემესტრი' }].concat(
-    ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'].map((s) => ({ value: s, label: s }))));
-  const group = h('input', { type: 'text', placeholder: 'ჯგუფი (სურვილისამებრ)' });
-
-  // staff picker
-  const chosen = new Map();
-  const staffSel = selectEl('uc-staff', [{ value: '', label: 'აირჩიეთ თანამშრომელი' }]
-    .concat(staff.map((u) => ({ value: u.uid, label: `${u.lastName} ${u.firstName} — ${E.roleLabel(u.role)}` }))));
-  const chosenHost = h('div', { class: 'row', style: 'margin-top:8px' });
-  function renderChosen() {
-    clear(chosenHost);
-    if (!chosen.size) { chosenHost.appendChild(h('span', { class: 'muted', text: 'შესაფასებელი თანამშრომლები არ არის არჩეული.' })); return; }
-    chosen.forEach((t, uid) => chosenHost.appendChild(h('span', { class: 'pill' }, [
-      `${t.name} (${E.roleLabel(t.role)}) `,
-      h('button', { class: 'sm ghost', style: 'padding:2px 6px', text: '×', onClick: () => { chosen.delete(uid); renderChosen(); } }),
-    ])));
-  }
-  const addStaffBtn = h('button', { class: 'ghost', text: 'დამატება', onClick: () => {
-    const uid = staffSel.value; if (!uid) return;
-    const u = staff.find((x) => x.uid === uid);
-    chosen.set(uid, { userId: uid, name: `${u.lastName} ${u.firstName}`, role: u.role });
-    staffSel.value = ''; renderChosen();
-  } });
-  renderChosen();
-
-  const createBtn = h('button', { text: 'კამპანიის შექმნა' });
-  createBtn.addEventListener('click', guardButton(createBtn, async () => {
-    if (!deptSel.value) { toast('აირჩიეთ დეპარტამენტი.', 'error'); return; }
-    if (!chosen.size) { toast('დაამატეთ მინიმუმ ერთი შესაფასებელი თანამშრომელი.', 'error'); return; }
-    try {
-      await api.createCampaign({
-        title: title.value.trim() || null, departmentId: deptSel.value,
-        academicYear: year.value.trim() || null, semester: semSel.value || null,
-        group: group.value.trim() || null, targets: [...chosen.values()], active: true,
-      }, state.me.uid);
-      toast('კამპანია შეიქმნა.', 'success');
-      viewUceem(host);
-    } catch (e) { toast(e.message || 'ვერ შეიქმნა', 'error'); }
-  }));
+  const url = publicUceemUrl();
+  const copyBtn = h('button', { text: 'UCEEM ლინკის კოპირება', onClick: copyUceemLinkForContext });
+  const openBtn = h('button', { class: 'secondary', text: 'ფორმის გახსნა', onClick: () => window.open(url, '_blank', 'noopener') });
 
   host.appendChild(h('div', { class: 'card' }, [
-    h('div', { class: 'section-title' }, [h('h2', { text: 'UCEEM კამპანიის შექმნა' }),
-      h('small', { class: 'muted', text: 'ანონიმური შეფასების პროცესი სემესტრის ბოლოს' })]),
+    h('div', { class: 'section-title' }, [h('h2', { text: 'UCEEM საჯარო ბმული' }),
+      h('small', { class: 'muted', text: 'სტუდენტს უგზავნით ამ ბმულს. ფორმა პირდაპირ იხსნება.' })]),
     h('div', { class: 'body stack' }, [
-      h('div', { class: 'grid grid-3' }, [
-        h('div', { class: 'field' }, [h('label', { text: 'სახელი' }), title]),
-        h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი *' }), deptSel]),
-        h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი' }), year]),
-        h('div', { class: 'field' }, [h('label', { text: 'სემესტრი' }), semSel]),
-        h('div', { class: 'field' }, [h('label', { text: 'ჯგუფი' }), group]),
-      ]),
-      h('div', { class: 'field' }, [h('label', { text: 'შესაფასებელი თანამშრომლები' }),
-        h('div', { class: 'row' }, [staffSel, addStaffBtn]), chosenHost]),
-      h('div', { class: 'row' }, [createBtn]),
-    ]),
-  ]));
-
-  const rows = campaigns.map((c) => h('tr', {}, [
-    h('td', { text: c.title || '—' }),
-    h('td', { text: c.departmentId ? deptName(c.departmentId) : '—' }),
-    h('td', { text: [c.academicYear, c.semester && (c.semester + ' სემ.'), c.group && ('ჯგ. ' + c.group)].filter(Boolean).join(' · ') || '—' }),
-    h('td', { text: (c.targets || []).map((t) => `${t.name} (${E.roleLabel(t.role)})`).join(', ') || '—' }),
-    h('td', { class: 'num' }, [h('span', { class: `pill ${c.active ? 'badge-ok' : 'badge-off'}`, text: c.active ? 'აქტიური' : 'დახურული' })]),
-    h('td', { class: 'num' }, [h('div', { class: 'btn-group' }, [
-      h('button', { class: 'sm secondary', text: 'UCEEM ლინკის კოპირება', onClick: () => copyCampaignLink(c) }),
-      h('button', {
-        class: 'sm ' + (c.active ? 'bad' : 'secondary'), text: c.active ? 'დახურვა' : 'გახსნა',
-        onClick: async () => { await api.setCampaignActive(c.id, !c.active); toast('განახლდა.', 'success'); viewUceem(host); },
-      }),
-    ])]),
-  ]));
-  host.appendChild(h('div', { class: 'card' }, [
-    h('div', { class: 'section-title' }, [h('h2', { text: `კამპანიები (${campaigns.length})` })]),
-    h('div', { class: 'body table-scroll' }, [
-      campaigns.length
-        ? h('table', {}, [h('thead', {}, [h('tr', {}, ['სახელი', 'დეპარტამენტი', 'კონტექსტი', 'თანამშრომლები', 'სტატუსი', 'მოქმედება'].map((t, i) => h('th', { class: i >= 4 ? 'num' : '', text: t })))]), h('tbody', {}, rows)])
-        : h('div', { class: 'empty-note', text: 'კამპანია ჯერ არ შექმნილა.' }),
+      h('div', { class: 'field' }, [h('label', { text: 'ბმული' }), h('input', { type: 'text', value: url, readonly: 'true' })]),
+      h('div', { class: 'row' }, [copyBtn, openBtn]),
+      h('div', { class: 'empty-note', text: 'სტუდენტი ფორმაში ირჩევს დეპარტამენტს, კურაციას, სემესტრს და ჯგუფს. სახელი/გვარი არ მოითხოვება.' }),
     ]),
   ]));
 }
 
+function publicUceemUrl() {
+  const base = location.href.replace(/index\.html.*$/, '').replace(/#.*$/, '').replace(/\?.*$/, '');
+  const clean = base.endsWith('/') ? base : base + '/';
+  return `${clean}uceem.html`;
+}
 function campaignUrl(campaign) {
   const base = location.href.replace(/index\.html.*$/, '').replace(/#.*$/, '').replace(/\?.*$/, '');
   const clean = base.endsWith('/') ? base : base + '/';
@@ -1372,13 +1320,10 @@ async function copyCampaignLink(campaign) {
   try { await navigator.clipboard.writeText(url); toast('ბმული დაკოპირდა.', 'success'); }
   catch (_) { window.prompt('დააკოპირეთ ბმული:', url); }
 }
-async function copyUceemLinkForContext(departmentId) {
-  try {
-    const campaigns = await api.listCampaigns();
-    const match = campaigns.find((c) => c.active && (!departmentId || c.departmentId === departmentId));
-    if (!match) { toast('ამ დეპარტამენტისთვის აქტიური კამპანია ვერ მოიძებნა. შექმენით UCEEM კამპანიების გვერდზე.', 'error'); return; }
-    await copyCampaignLink(match);
-  } catch (e) { toast(e.message || 'ვერ მოხერხდა', 'error'); }
+async function copyUceemLinkForContext() {
+  const url = publicUceemUrl();
+  try { await navigator.clipboard.writeText(url); toast('UCEEM ბმული დაკოპირდა.', 'success'); }
+  catch (_) { window.prompt('დააკოპირეთ ბმული:', url); }
 }
 
 // =========================================================================
@@ -1386,11 +1331,16 @@ async function copyUceemLinkForContext(departmentId) {
 // =========================================================================
 async function viewUceemResults(host) {
   clear(host);
-  const [responses, campaigns] = await Promise.all([api.listUceemResponses(), api.listCampaigns()]);
+  const [responses, students] = await Promise.all([api.listUceemResponses(), api.queryStudents({})]);
+  const normalizedResponses = responses.map((r) => ({ ...r, curation: uceemResponseCuration(r) }));
+  const contextRows = [...normalizedResponses, ...students];
+  const uniq = (key) => [...new Set(contextRows.map((r) => String(r[key] || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'ka'));
   const fDept = selectEl('r-dept', deptOptions(true), '');
-  const fYear = h('input', { type: 'text', placeholder: 'სასწავლო წელი' });
-  const fSem = h('input', { type: 'text', placeholder: 'სემესტრი' });
-  const fGroup = h('input', { type: 'text', placeholder: 'ჯგუფი' });
+  const fYear = selectEl('r-year', [{ value: '', label: 'ყველა სასწავლო წელი' }].concat(uniq('academicYear').map((v) => ({ value: v, label: v }))), '');
+  const fCuration = selectEl('r-curation', [{ value: '', label: 'ყველა კურაცია' }].concat(uniq('curation').map((v) => ({ value: v, label: v }))), '');
+  const fSem = selectEl('r-sem', [{ value: '', label: 'ყველა სემესტრი' }].concat(uniq('semester').map((v) => ({ value: v, label: v }))), '');
+  const fGroup = selectEl('r-group', [{ value: '', label: 'ყველა ჯგუფი' }].concat(uniq('group').map((v) => ({ value: v, label: v }))), '');
   const fRole = selectEl('r-role', [{ value: '', label: 'ყველა როლი' }].concat(E.ROLES.map((r) => ({ value: r.value, label: r.label }))), '');
   const targetsAll = [];
   const seen = new Set();
@@ -1400,18 +1350,19 @@ async function viewUceemResults(host) {
   const resultHost = h('div', { id: 'uc-res' });
   function run() {
     const norm = (s) => (s || '').toString().toLowerCase();
-    const filtered = responses.filter((r) =>
+    const filtered = normalizedResponses.filter((r) =>
       (!fDept.value || r.departmentId === fDept.value) &&
-      (!fYear.value.trim() || norm(r.academicYear) === norm(fYear.value)) &&
-      (!fSem.value.trim() || norm(r.semester) === norm(fSem.value)) &&
-      (!fGroup.value.trim() || norm(r.group) === norm(fGroup.value)) &&
+      (!fYear.value || norm(r.academicYear) === norm(fYear.value)) &&
+      (!fCuration.value || norm(r.curation) === norm(fCuration.value)) &&
+      (!fSem.value || norm(r.semester) === norm(fSem.value)) &&
+      (!fGroup.value || norm(r.group) === norm(fGroup.value)) &&
       (!fRole.value || r.targetRole === fRole.value) &&
       (!fTarget.value || r.targetUserId === fTarget.value));
     renderUceemAggregate(resultHost, filtered);
   }
   const runBtn = h('button', { class: 'secondary', text: 'ფილტრი', onClick: run });
   const clearBtn = h('button', { class: 'ghost', text: 'გასუფთავება', onClick: () => {
-    fDept.value = ''; fYear.value = ''; fSem.value = ''; fGroup.value = ''; fRole.value = ''; fTarget.value = ''; run();
+    fDept.value = ''; fYear.value = ''; fCuration.value = ''; fSem.value = ''; fGroup.value = ''; fRole.value = ''; fTarget.value = ''; run();
   } });
 
   host.appendChild(h('div', { class: 'card' }, [
@@ -1421,6 +1372,7 @@ async function viewUceemResults(host) {
       h('div', { class: 'filters' }, [
         h('div', { class: 'field' }, [h('label', { text: 'დეპარტამენტი' }), fDept]),
         h('div', { class: 'field' }, [h('label', { text: 'სასწავლო წელი' }), fYear]),
+        h('div', { class: 'field' }, [h('label', { text: 'კურაცია' }), fCuration]),
         h('div', { class: 'field' }, [h('label', { text: 'სემესტრი' }), fSem]),
         h('div', { class: 'field' }, [h('label', { text: 'ჯგუფი' }), fGroup]),
         h('div', { class: 'field' }, [h('label', { text: 'თანამშრომლის როლი' }), fRole]),
@@ -1439,11 +1391,14 @@ function renderUceemAggregate(hostEl, responses) {
     hostEl.appendChild(h('div', { class: 'card' }, [h('div', { class: 'body' }, [h('div', { class: 'empty-note', text: 'ამ ფილტრით პასუხი ვერ მოიძებნა.' })])]));
     return;
   }
-  // Group by target staff.
+  hostEl.appendChild(renderUceemCorrelation(responses));
+
+  // New direct UCEEM responses are grouped by learning context; older campaign
+  // responses still group by target staff so historical data remains readable.
   const byTarget = new Map();
   responses.forEach((r) => {
-    const k = r.targetUserId || '—';
-    if (!byTarget.has(k)) byTarget.set(k, { name: r.targetName, role: r.targetRole, list: [] });
+    const k = r.targetUserId || [r.departmentId || '', r.curation || '', r.semester || '', r.group || ''].join('|');
+    if (!byTarget.has(k)) byTarget.set(k, { name: r.targetName, role: r.targetRole, sample: r, list: [] });
     byTarget.get(k).list.push(r);
   });
 
@@ -1482,7 +1437,10 @@ function renderUceemAggregate(hostEl, responses) {
 
     hostEl.appendChild(h('div', { class: 'card' }, [
       h('div', { class: 'section-title' }, [
-        h('div', {}, [h('h3', { text: `${grp.name || '—'}` }), h('small', { class: 'muted', text: E.roleLabel(grp.role) })]),
+        h('div', {}, [
+          h('h3', { text: grp.name || uceemContextTitle(grp.sample) }),
+          h('small', { class: 'muted', text: grp.name ? E.roleLabel(grp.role) : 'ანონიმური სასწავლო გარემოს შეფასება' }),
+        ]),
       ]),
       h('div', { class: 'body stack' }, [
         kpi,
@@ -1492,6 +1450,63 @@ function renderUceemAggregate(hostEl, responses) {
       ]),
     ]));
   });
+}
+function uceemResponseCuration(r) {
+  if (r.curation) return r.curation;
+  const parts = String(r.campaignId || '').split('|');
+  return parts[0] === 'uceem-context' ? (parts[2] || '') : '';
+}
+function uceemContextTitle(r) {
+  return [
+    r.departmentId ? deptName(r.departmentId) : '',
+    r.curation || '',
+    r.semester ? `${r.semester} სემ.` : '',
+    r.group ? `ჯგ. ${r.group}` : '',
+  ].filter(Boolean).join(' · ') || 'UCEEM კონტექსტი';
+}
+function renderUceemCorrelation(responses) {
+  const groups = new Map();
+  responses.forEach((r) => {
+    const key = [r.departmentId || '', r.curation || '', r.semester || '', r.group || ''].join('|');
+    if (!groups.has(key)) groups.set(key, { sample: r, list: [] });
+    groups.get(key).list.push(r);
+  });
+  const rows = [...groups.values()].map((grp) => {
+    const n = grp.list.length;
+    const avg = grp.list.reduce((sum, r) => sum + Number(r.calculatedScores?.total || 0), 0) / n;
+    const pct = E.uceemPct(avg, E.UCEEM_TOTAL_MAX);
+    const band = E.uceemBand(pct);
+    return { ...grp, n, avg, pct, band };
+  }).sort((a, b) => b.pct - a.pct);
+
+  const allAvg = responses.reduce((sum, r) => sum + Number(r.calculatedScores?.total || 0), 0) / responses.length;
+  const allPct = E.uceemPct(allAvg, E.UCEEM_TOTAL_MAX);
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'section-title' }, [h('h2', { text: 'UCEEM სტატისტიკა და კორელაცია' }),
+      h('small', { class: 'muted', text: 'კონტექსტების შედარება: დეპარტამენტი / კურაცია / სემესტრი / ჯგუფი' })]),
+    h('div', { class: 'body stack' }, [
+      h('div', { class: 'kpi' }, [
+        kbox('პასუხები სულ', String(responses.length)),
+        kbox('კონტექსტები', String(rows.length)),
+        kbox('საერთო საშუალო', `${allAvg.toFixed(1)} / ${E.UCEEM_TOTAL_MAX}`),
+        kbox('საერთო პროცენტი', `${allPct}%`),
+      ]),
+      h('div', { class: 'table-scroll' }, [h('table', {}, [
+        h('thead', {}, [h('tr', {}, ['დეპარტამენტი', 'კურაცია', 'სემესტრი', 'ჯგუფი', 'პასუხები', 'საშ. ქულა', '%', 'ინტერპრეტაცია']
+          .map((t, i) => h('th', { class: i >= 4 ? 'num' : '', text: t })))]),
+        h('tbody', {}, rows.map((row) => h('tr', {}, [
+          h('td', { text: row.sample.departmentId ? deptName(row.sample.departmentId) : '—' }),
+          h('td', { text: row.sample.curation || '—' }),
+          h('td', { text: row.sample.semester || '—' }),
+          h('td', { text: row.sample.group || '—' }),
+          h('td', { class: 'num', text: String(row.n) }),
+          h('td', { class: 'num', text: row.avg.toFixed(1) }),
+          h('td', { class: 'num', text: `${row.pct}%` }),
+          h('td', { text: row.band[0] }),
+        ]))),
+      ])]),
+    ]),
+  ]);
 }
 
 // =========================================================================
